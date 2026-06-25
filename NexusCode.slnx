@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NexusCode.Domain/NexusCode.Domain.csproj" />
+    <Project Path="src/NexusCode.Graph/NexusCode.Graph.csproj" />
+    <Project Path="src/NexusCode.Indexer/NexusCode.Indexer.csproj" />
+    <Project Path="src/NexusCode.Roslyn/NexusCode.Roslyn.csproj" />
+    <Project Path="src/NexusCode.Symbols/NexusCode.Symbols.csproj" />
+  </Folder>
+</Solution>
