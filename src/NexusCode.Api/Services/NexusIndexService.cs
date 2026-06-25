@@ -27,6 +27,12 @@ public sealed class NexusIndexService
     public KnowledgeGraph Graph => _graph;
     public bool IsIndexed => _indexed;
 
+    public GraphRAGResult GraphRAG(string question)
+    {
+        var ragEngine = new GraphRAGEngine(_searchEngine, _symbolTable, _graph);
+        return ragEngine.Answer(question);
+    }
+
     public async Task<IndexResult> IndexRepositoryAsync(string repositoryPath, IProgress<IndexProgress>? progress = default, CancellationToken ct = default)
     {
         var startTime = DateTimeOffset.UtcNow;

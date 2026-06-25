@@ -67,6 +67,77 @@ public class GraphController : ControllerBase
         }));
     }
 
+    [HttpGet("export")]
+    public IActionResult Export()
+    {
+        if (!_indexService.IsIndexed)
+            return BadRequest(new { error = "Repository not indexed" });
+
+        var nodeColors = new Dictionary<string, string>
+        {
+            ["Class"] = "#58a6ff",
+            ["Interface"] = "#a371f7",
+            ["Method"] = "#3fb950",
+            ["Property"] = "#d29922",
+            ["Field"] = "#f85149",
+            ["Enum"] = "#f0883e",
+            ["Namespace"] = "#8b949e",
+            ["File"] = "#58a6ff",
+            ["Struct"] = "#79c0ff",
+            ["Record"] = "#d2a8ff",
+            ["Event"] = "#ffa657"
+        };
+
+        var edgeColors = new Dictionary<string, string>
+        {
+            ["Contains"] = "#30363d",
+            ["Calls"] = "#3fb950",
+            ["Inherits"] = "#58a6ff",
+            ["Implements"] = "#a371f7",
+            ["Overrides"] = "#d29922",
+            ["Declares"] = "#8b949e",
+            ["Uses"] = "#f0883e",
+            ["References"] = "#f85149"
+        };
+
+        var nodes = new List<object>();
+        foreach (var kind in Enum.GetValues<NodeKind>())
+        {
+            var kindNodes = _indexService.Graph.GetNodesByKind(kind);
+            foreach (var n in kindNodes)
+            {
+                nodes.Add(new
+                {
+                    id = Convert.ToBase64String(n.Id),
+                    label = n.Label,
+                    kind = n.Kind.ToString(),
+                    color = nodeColors.GetValueOrDefault(n.Kind.ToString(), "#8b949e"),
+                    size = n.Kind == NodeKind.Class || n.Kind == NodeKind.Interface ? 10 : 5,
+                    metadata = n.Metadata
+                });
+            }
+        }
+
+        var edges = new List<object>();
+        foreach (var kind in Enum.GetValues<EdgeKind>())
+        {
+            var kindEdges = _indexService.Graph.GetEdgesByKind(kind);
+            foreach (var e in kindEdges)
+            {
+                edges.Add(new
+                {
+                    id = Convert.ToBase64String(e.Id),
+                    source = Convert.ToBase64String(e.SourceId),
+                    target = Convert.ToBase64String(e.TargetId),
+                    kind = e.Kind.ToString(),
+                    color = edgeColors.GetValueOrDefault(e.Kind.ToString(), "#30363d")
+                });
+            }
+        }
+
+        return Ok(new { nodes, edges });
+    }
+
     [HttpGet("mermaid")]
     public IActionResult GetMermaidDiagram([FromQuery] string? type = null)
     {

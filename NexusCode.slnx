@@ -10,6 +10,7 @@
     <Project Path="src/NexusCode.Embedding/NexusCode.Embedding.csproj" />
     <Project Path="src/NexusCode.VectorStore/NexusCode.VectorStore.csproj" />
     <Project Path="src/NexusCode.Database/NexusCode.Database.csproj" />
+    <Project Path="src/NexusCode.Context/NexusCode.Context.csproj" />
     <Project Path="src/NexusCode.Tests/NexusCode.Tests.csproj" />
   </Folder>
 </Solution>
