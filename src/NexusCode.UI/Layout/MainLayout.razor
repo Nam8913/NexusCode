@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+
+<div class="layout">
+    <nav class="sidebar">
+        <div class="brand">Nexus Code Intelligence</div>
+        <NavLink href="/" class="nav-link" Match="NavLinkMatch.All">Dashboard</NavLink>
+        <NavLink href="/symbols" class="nav-link">Symbols</NavLink>
+        <NavLink href="/search" class="nav-link">Search</NavLink>
+        <NavLink href="/graph" class="nav-link">Graph</NavLink>
+        <NavLink href="/rag" class="nav-link">Graph RAG</NavLink>
+        <NavLink href="/repos" class="nav-link">Repos</NavLink>
+        <NavLink href="/about" class="nav-link">About</NavLink>
+    </nav>
+    <main class="content">
+        @Body
+    </main>
+</div>

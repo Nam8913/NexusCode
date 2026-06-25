@@ -3,8 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\NexusCode.Domain\NexusCode.Domain.csproj" />
     <ProjectReference Include="..\NexusCode.Roslyn\NexusCode.Roslyn.csproj" />
-    <ProjectReference Include="..\NexusCode.Graph\NexusCode.Graph.csproj" />
-    <ProjectReference Include="..\NexusCode.Symbols\NexusCode.Symbols.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

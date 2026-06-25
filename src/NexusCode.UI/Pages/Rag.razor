@@ -1,0 +1,78 @@
+@page "/rag"
+@using NexusCode.UI.Services
+@using NexusCode.Roslyn
+@inject NexusService Nexus
+
+<h1>Graph RAG</h1>
+
+@if (!Nexus.IsIndexed)
+{
+    <div class="card">
+        <p>Index a repository first from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="input-group">
+            <input @bind="question" @bind:event="oninput" @onkeydown="QuestionKeyDown" placeholder="Ask a question about the code..." class="input input-large" />
+            <button @onclick="Ask" class="btn btn-primary">Ask</button>
+        </div>
+    </div>
+
+    @if (result != null)
+    {
+        <div class="card">
+            <h2>Answer Context</h2>
+            <p><strong>Question:</strong> @result.Question</p>
+            <p><strong>Evidence:</strong> @result.Evidence.Count symbols found</p>
+            <p><strong>Tokens:</strong> ~@result.TokenCount</p>
+        </div>
+
+        <div class="card">
+            <h2>Relevant Symbols</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Kind</th>
+                        <th>Source</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in result.Evidence.Take(20))
+                    {
+                        <tr>
+                            <td><code>@e.Symbol.FullName</code></td>
+                            <td>@e.Symbol.Kind</td>
+                            <td>@e.Source</td>
+                            <td>@e.Score.ToString("F2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Generated Prompt</h2>
+            <pre class="prompt-output">@result.Prompt</pre>
+        </div>
+    }
+}
+
+@code {
+    private string question = "";
+    private GraphRAGResult? result;
+
+    private void QuestionKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Ask();
+    }
+
+    private void Ask()
+    {
+        if (string.IsNullOrWhiteSpace(question)) return;
+        result = Nexus.GraphRAG(question);
+    }
+}

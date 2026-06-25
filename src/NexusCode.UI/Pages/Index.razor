@@ -1,0 +1,66 @@
+@page "/"
+@using NexusCode.UI.Services
+@inject NexusService Nexus
+
+<h1>Nexus Code Intelligence Platform</h1>
+
+<div class="card">
+    <h2>Repository Indexing</h2>
+    <div class="input-group">
+        <input @bind="repoPath" placeholder="Enter repository path..." class="input" />
+        <button @onclick="IndexRepository" disabled="@isIndexing" class="btn btn-primary">
+            @(isIndexing ? "Indexing..." : "Index")
+        </button>
+    </div>
+
+    @if (indexResult != null)
+    {
+        <div class="result-card">
+            <h3>Indexing Complete</h3>
+            <p>Files: @indexResult.FilesIndexed</p>
+            <p>Symbols: @indexResult.SymbolsExtracted</p>
+            <p>Graph Nodes: @indexResult.GraphNodesCreated</p>
+            <p>Graph Edges: @indexResult.GraphEdgesCreated</p>
+            <p>Duration: @indexResult.Duration.TotalSeconds.ToString("F2")s</p>
+        </div>
+    }
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">@symbolCount</div>
+        <div class="stat-label">Symbols</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@nodeCount</div>
+        <div class="stat-label">Graph Nodes</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@edgeCount</div>
+        <div class="stat-label">Graph Edges</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@(Nexus.IsIndexed ? "Ready" : "Not Indexed")</div>
+        <div class="stat-label">Status</div>
+    </div>
+</div>
+
+@code {
+    private string repoPath = "";
+    private bool isIndexing = false;
+    private NexusCode.Domain.IndexResult? indexResult;
+    private int symbolCount => Nexus.SymbolTable.Count;
+    private int nodeCount => Nexus.Graph.NodeCount;
+    private int edgeCount => Nexus.Graph.EdgeCount;
+
+    private async Task IndexRepository()
+    {
+        if (string.IsNullOrWhiteSpace(repoPath)) return;
+        isIndexing = true;
+        indexResult = null;
+        StateHasChanged();
+
+        indexResult = await Nexus.IndexRepositoryAsync(repoPath);
+        isIndexing = false;
+    }
+}

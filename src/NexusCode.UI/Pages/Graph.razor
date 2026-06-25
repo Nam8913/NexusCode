@@ -1,0 +1,99 @@
+@page "/graph"
+@using NexusCode.UI.Services
+@using NexusCode.Domain
+@inject NexusService Nexus
+
+<h1>Knowledge Graph</h1>
+
+@if (!Nexus.IsIndexed)
+{
+    <div class="card">
+        <p>Index a repository first from the <a href="/">Dashboard</a>.</p>
+    </div>
+}
+else
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">@Nexus.Graph.NodeCount</div>
+            <div class="stat-label">Nodes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@Nexus.Graph.EdgeCount</div>
+            <div class="stat-label">Edges</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Node Types</h2>
+        <div class="kind-grid">
+            @foreach (var kind in Enum.GetValues<NodeKind>())
+            {
+                var count = Nexus.Graph.GetNodesByKind(kind).Count;
+                if (count > 0)
+                {
+                    <div class="kind-item">
+                        <span class="kind-name">@kind</span>
+                        <span class="kind-count">@count</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Edge Types</h2>
+        <div class="kind-grid">
+            @foreach (var kind in Enum.GetValues<EdgeKind>())
+            {
+                var count = Nexus.Graph.GetEdgesByKind(kind).Count;
+                if (count > 0)
+                {
+                    <div class="kind-item">
+                        <span class="kind-name">@kind</span>
+                        <span class="kind-count">@count</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Mermaid Diagram</h2>
+        <pre class="mermaid">@mermaidCode</pre>
+        <button @onclick="GenerateMermaid" class="btn">Generate Diagram</button>
+    </div>
+}
+
+@code {
+    private string mermaidCode = "";
+
+    private void GenerateMermaid()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("graph TD");
+
+        var nodes = Nexus.Graph.GetNodesByKind(NodeKind.Class)
+            .Concat(Nexus.Graph.GetNodesByKind(NodeKind.Interface))
+            .Take(30);
+
+        foreach (var node in nodes)
+        {
+            var id = Convert.ToBase64String(node.Id)[..8];
+            sb.AppendLine($"    {id}[\"{node.Label}\"]");
+        }
+
+        var edges = Nexus.Graph.GetEdgesByKind(EdgeKind.Inherits)
+            .Concat(Nexus.Graph.GetEdgesByKind(EdgeKind.Implements))
+            .Take(50);
+
+        foreach (var edge in edges)
+        {
+            var src = Convert.ToBase64String(edge.SourceId)[..8];
+            var tgt = Convert.ToBase64String(edge.TargetId)[..8];
+            sb.AppendLine($"    {src} --> {tgt}");
+        }
+
+        mermaidCode = sb.ToString();
+    }
+}

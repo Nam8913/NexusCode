@@ -1,0 +1,109 @@
+@page "/repos"
+@using NexusCode.UI.Services
+@using NexusCode.Domain
+@inject NexusService Nexus
+
+<h1>Repository Manager</h1>
+
+<div class="card">
+    <h2>Add Repository</h2>
+    <div class="input-group">
+        <input @bind="newRepoPath" placeholder="Enter repository path..." class="input" />
+        <button @onclick="AddRepository" disabled="@isAdding" class="btn btn-primary">
+            @(isAdding ? "Adding..." : "Add & Index")
+        </button>
+    </div>
+    @if (addResult != null)
+    {
+        <div class="result-card @(addResult.Success ? "success" : "error")">
+            @(addResult.Success ? $"Indexed {addResult.SymbolsExtracted} symbols in {addResult.Duration.TotalSeconds:F1}s" : addResult.Error)
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>Indexed Repositories</h2>
+    @if (!Nexus.IsIndexed)
+    {
+        <p class="text-muted">No repositories indexed yet.</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Symbols</th>
+                    <th>Graph Nodes</th>
+                    <th>Graph Edges</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-success">Indexed</span></td>
+                    <td>@Nexus.SymbolTable.Count</td>
+                    <td>@Nexus.Graph.NodeCount</td>
+                    <td>@Nexus.Graph.EdgeCount</td>
+                    <td>
+                        <button class="btn btn-sm" @onclick="Reindex">Re-index</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="card">
+    <h2>Health Status</h2>
+    <div class="kind-grid">
+        <div class="kind-item">
+            <span class="kind-name">Symbol Table</span>
+            <span class="kind-count @(Nexus.SymbolTable.Count > 0 ? "text-success" : "text-muted")">
+                @(Nexus.SymbolTable.Count > 0 ? "Loaded" : "Empty")
+            </span>
+        </div>
+        <div class="kind-item">
+            <span class="kind-name">Knowledge Graph</span>
+            <span class="kind-count @(Nexus.Graph.NodeCount > 0 ? "text-success" : "text-muted")">
+                @(Nexus.Graph.NodeCount > 0 ? "Built" : "Empty")
+            </span>
+        </div>
+        <div class="kind-item">
+            <span class="kind-name">Search Engine</span>
+            <span class="kind-count @(Nexus.IsIndexed ? "text-success" : "text-muted")">
+                @(Nexus.IsIndexed ? "Ready" : "Not Ready")
+            </span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string newRepoPath = "";
+    private bool isAdding = false;
+    private IndexResult? addResult;
+
+    private async Task AddRepository()
+    {
+        if (string.IsNullOrWhiteSpace(newRepoPath)) return;
+
+        isAdding = true;
+        addResult = null;
+        StateHasChanged();
+
+        addResult = await Nexus.IndexRepositoryAsync(newRepoPath);
+        isAdding = false;
+    }
+
+    private async Task Reindex()
+    {
+        if (string.IsNullOrWhiteSpace(newRepoPath)) return;
+
+        isAdding = true;
+        addResult = null;
+        StateHasChanged();
+
+        addResult = await Nexus.IndexRepositoryAsync(newRepoPath);
+        isAdding = false;
+    }
+}
