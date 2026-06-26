@@ -18,6 +18,7 @@ export default function GraphPage({ nodeKinds, edgeKinds, onNodeKindToggle, onEd
   const graphRef = useRef<Graph | null>(null);
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<any>(null);
@@ -32,11 +33,19 @@ export default function GraphPage({ nodeKinds, edgeKinds, onNodeKindToggle, onEd
 
   async function loadData() {
     try {
+      setLoading(true);
+      setError(null);
       const [graphData, graphStats] = await Promise.all([api.graph.export(), api.graph.stats()]);
       setData(graphData);
       setStats(graphStats);
-    } catch {}
+    } catch (err: any) {
+      setError(err.message || 'Failed to load graph data');
+    }
     setLoading(false);
+  }
+
+  function fitToScreen() {
+    sigmaRef.current?.getCamera().animatedReset({ duration: 500 });
   }
 
   function renderGraph() {
@@ -89,6 +98,7 @@ export default function GraphPage({ nodeKinds, edgeKinds, onNodeKindToggle, onEd
   }
 
   if (loading) return <div className="loading-card"><div className="loading-spinner-large"></div><p>Loading graph...</p></div>;
+  if (error) return <div className="result-card error"><div className="result-header"><span className="icon-error">✗</span><h3>Failed to Load Graph</h3></div><p>{error}</p><button className="btn" onClick={loadData} style={{ marginTop: 8 }}>Retry</button></div>;
   if (!data) return <p className="text-muted">No graph data. Index a repository first from Dashboard.</p>;
 
   return (
@@ -112,8 +122,9 @@ export default function GraphPage({ nodeKinds, edgeKinds, onNodeKindToggle, onEd
       </div>
 
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}>
-          <input value={searchQuery} onChange={e => handleSearch(e.target.value)} placeholder="Search nodes..." style={{ width: 220, padding: '5px 10px', background: '#161b22', border: '1px solid #30363d', borderRadius: 6, color: '#c9d1d9', fontSize: 12 }} />
+        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 10, display: 'flex', gap: 6 }}>
+          <input value={searchQuery} onChange={e => handleSearch(e.target.value)} placeholder="Search nodes..." style={{ width: 200, padding: '5px 10px', background: '#161b22', border: '1px solid #30363d', borderRadius: 6, color: '#c9d1d9', fontSize: 12 }} aria-label="Search nodes" />
+          <button onClick={fitToScreen} className="btn btn-sm" title="Fit to screen">⊡</button>
         </div>
         <div ref={containerRef} style={{ width: '100%', height: '100%', background: '#0d1117' }} />
         {selectedNode && (

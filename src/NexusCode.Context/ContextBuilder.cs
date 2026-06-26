@@ -22,21 +22,30 @@ public sealed class ContextBuilder
 
         var terms = ExtractTerms(question);
         var symbols = new List<SymbolEntity>();
+        var searchScores = new Dictionary<Guid, double>();
 
         foreach (var term in terms)
         {
             var matches = _searchEngine.FindSymbol(term, new SearchOptions { MaxResults = 5 });
-            symbols.AddRange(matches.Select(m => m.Symbol));
+            foreach (var match in matches)
+            {
+                symbols.Add(match.Symbol);
+                searchScores[match.Symbol.Id] = match.Score;
+            }
         }
 
         symbols = symbols.DistinctBy(s => s.Id).Take(20).ToList();
 
+        int relationshipCount = 0;
+
         foreach (var symbol in symbols)
         {
+            var score = searchScores.TryGetValue(symbol.Id, out var s) ? s : 0.5;
+
             result.Symbols.Add(new ContextSymbol
             {
                 Symbol = symbol,
-                RelevanceScore = 1.0
+                RelevanceScore = score
             });
 
             var callers = _searchEngine.FindCallers(symbol.Id, 1);
@@ -48,6 +57,7 @@ public sealed class ContextBuilder
                     To = symbol.FullName,
                     Kind = "calls"
                 });
+                relationshipCount++;
             }
 
             var callees = _searchEngine.FindCallees(symbol.Id, 1);
@@ -63,7 +73,20 @@ public sealed class ContextBuilder
         }
 
         result.TokenCount = EstimateTokens(result);
+        result.ConfidenceScore = CalculateConfidence(result);
+        result.HasSufficientContext = result.ConfidenceScore > 0.65;
         return result;
+    }
+
+    private double CalculateConfidence(ContextResult context)
+    {
+        if (context.Symbols.Count == 0) return 0.0;
+
+        double topScore = context.Symbols.Max(s => s.RelevanceScore);
+        double coverageRatio = Math.Min(1.0, context.Relationships.Count / 10.0);
+        double diversityBonus = context.Symbols.Count >= 3 ? 0.1 : 0;
+
+        return Math.Min(1.0, topScore * 0.6 + coverageRatio * 0.3 + diversityBonus);
     }
 
     public string BuildPrompt(ContextResult context)
@@ -129,6 +152,8 @@ public class ContextResult
     public List<ContextSymbol> Symbols { get; set; } = [];
     public List<ContextRelationship> Relationships { get; set; } = [];
     public int TokenCount { get; set; }
+    public double ConfidenceScore { get; set; }
+    public bool HasSufficientContext { get; set; }
 }
 
 public class ContextSymbol

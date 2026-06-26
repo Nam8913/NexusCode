@@ -10,147 +10,284 @@ dotnet build
 
 ### 2. Index a repository
 
+**Option A: CLI**
 ```bash
-# CLI
-dotnet run --project src/NexusCode.Indexer -- "D:\\path\\to\\project"
+dotnet run --project src/NexusCode.Indexer -- "D:\path\to\project"
+```
 
-# Or use API
+**Option B: API**
+```bash
 curl -X POST http://localhost:5000/api/index/repository \
   -H "Content-Type: application/json" \
   -d '{"path": "D:\\path\\to\\project"}'
 ```
 
-### 3. Search for symbols
-
-```bash
-curl "http://localhost:5000/api/search/symbol?query=PlayerController"
+**Option C: MCP Tool** (for AI agents)
+```
+index_repository with path: "D:\path\to\project"
 ```
 
-### 4. Open Web UI
+### 3. Open NexusGraph (Web UI)
 
 ```bash
-dotnet run --project src/NexusCode.UI
-# Open http://localhost:5001
+cd NexusGraph
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+---
+
+## Running the System
+
+### Start API Server
+
+```bash
+dotnet run --project src/NexusCode.Api
+# API available at http://localhost:5000
+# Swagger at http://localhost:5000/swagger
+```
+
+### Start NexusGraph (Frontend)
+
+```bash
+cd NexusGraph
+npm run dev
+# Frontend at http://localhost:3000
+```
+
+### Start MCP Server (for AI agents)
+
+```bash
+dotnet run --project src/NexusCode.Mcp
+# MCP server runs via stdio
 ```
 
 ---
 
 ## Features
 
-### Dashboard
-- Index repositories
-- View statistics
+### Dashboard (`/`)
+- Index repositories by path
+- View indexing statistics
 - Check system status
 
-### Symbol Browser
-- Search all symbols
-- Filter by type (class, method, property)
+### Graph Visualization (`/graph`)
+- Interactive force-directed graph
+- Node/edge type filters (sidebar)
+- Search and highlight nodes
+- Click node for details
+- Fit-to-screen button
+
+### Symbol Browser (`/symbols`)
+- Search symbols by name
+- Filter by type (class, method, property, field)
 - View callers and callees
 
-### Search
+### Search (`/search`)
 - Full-text symbol search
 - Fuzzy matching
-- Cross-repository search
+- Click results for details
 
-### Graph Visualization
-- View knowledge graph
-- See relationships between symbols
+### Graph RAG (`/rag`)
+- Ask questions about codebase
+- Get AI-powered context
+- View evidence and generated prompt
 
-### Graph RAG
-- Ask questions about code
-- Get AI-powered answers
-
-### Repository Manager
-- Add/remove repositories
-- Re-index repositories
-- View health status
+### About (`/about`)
+- Project information
+- Technology stack
 
 ---
 
-## API Usage
+## API Endpoints
 
-### Index a repository
+### Index
 
 ```bash
+# Index a repository
 curl -X POST http://localhost:5000/api/index/repository \
   -H "Content-Type: application/json" \
   -d '{"path": "D:\\MyProject"}'
+
+# Check status
+curl http://localhost:5000/api/index/status
 ```
 
-### Search symbols
+### Search
 
 ```bash
-# Find all classes
+# Search symbols
 curl "http://localhost:5000/api/search/symbol?query=Controller&kind=Type"
 
-# Find all methods
-curl "http://localhost:5000/api/search/symbol?query=Update&kind=Method"
+# Find callers
+curl "http://localhost:5000/api/search/callers/MyApp.PlayerController.Attack"
+
+# Find callees
+curl "http://localhost:5000/api/search/callees/MyApp.Weapon.Fire"
+
+# Find implementations
+curl "http://localhost:5000/api/search/implementations/MyApp.IDamageable"
+
+# Find derived types
+curl "http://localhost:5000/api/search/derived/MyApp.BaseEnemy"
 ```
 
-### Find callers
+### Graph
 
 ```bash
-curl "http://localhost:5000/api/search/callers/Game.PlayerController.Attack"
+# Graph statistics
+curl http://localhost:5000/api/graph/stats
+
+# Export full graph (for NexusGraph)
+curl http://localhost:5000/api/graph/export
+
+# Nodes by kind
+curl http://localhost:5000/api/graph/nodes/Class
+
+# Edges by kind
+curl http://localhost:5000/api/graph/edges/Calls
 ```
 
-### Find callees
+### RAG
 
 ```bash
-curl "http://localhost:5000/api/search/callees/Game.Weapon.Fire"
+# Ask a question
+curl -X POST http://localhost:5000/api/rag/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How does weapon firing work?"}'
 ```
 
-### Graph stats
+### Health
 
 ```bash
-curl "http://localhost:5000/api/graph/stats"
+curl http://localhost:5000/health
 ```
 
 ---
 
 ## MCP Integration
 
-Configure MCP server for AI agents:
+### Configuration
 
 ```json
 {
-  "mcpServers": {
-    "nexus": {
-      "command": "dotnet",
-      "args": ["run", "--project", "src/NexusCode.Api"]
+  "mcp": {
+    "NexusCode": {
+      "type": "local",
+      "command": ["D:\\NexusCode\\src\\NexusCode.Mcp\\publish\\NexusCode.Mcp.exe"]
     }
   }
 }
 ```
 
-Available MCP tools:
-- `find_symbol` - Find a symbol by name
-- `find_references` - Find all references
-- `find_callers` - Find callers of a method
-- `find_callees` - Find callees of a method
-- `find_implementations` - Find interface implementations
-- `find_derived_types` - Find derived types
-- `search_code` - Search code content
-- `get_symbol_info` - Get symbol details
-- `get_graph_stats` - Get graph statistics
-- `explain_architecture` - Explain codebase architecture
+**Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "NexusCode": {
+      "command": "D:\\NexusCode\\src\\NexusCode.Mcp\\publish\\NexusCode.Mcp.exe"
+    }
+  }
+}
+```
+
+### Available MCP Tools (12)
+
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| `index_repository` | Index a C# repository | `path: "D:\\MyProject"` |
+| `find_symbol` | Find symbol by name | `query: "PlayerController"` |
+| `find_references` | Find all references | `symbolName: "global::MyApp.Weapon.Fire"` |
+| `find_callers` | Find methods calling a method | `method: "global::MyApp.Weapon.Fire"` |
+| `find_callees` | Find methods called by a method | `method: "global::MyApp.PlayerController.Attack"` |
+| `find_implementations` | Find interface implementations | `interfaceName: "global::MyApp.IDamageable"` |
+| `find_derived_types` | Find derived types | `typeName: "global::MyApp.BaseEnemy"` |
+| `search_code` | Search code by query | `query: "Weapon"` |
+| `get_symbol_info` | Get detailed symbol info | `symbolName: "global::MyApp.Weapon"` |
+| `explain_architecture` | Explain codebase architecture | `{}` |
+| `blast_radius` | Analyze impact of changing a symbol | `symbolName: "global::MyApp.Weapon.Fire"` |
+| `pop_symbols` | List symbols by kind and name filter | `kind: "Class", name: "Controller"` |
+
+### Building MCP Server
+
+```bash
+dotnet publish src/NexusCode.Mcp -c Release -o src/NexusCode.Mcp/publish
+```
+
+---
+
+## NexusGraph (Web Frontend)
+
+### Setup
+
+```bash
+cd NexusGraph
+npm install
+npm run dev
+```
+
+### Pages
+
+| Page | URL | Features |
+|------|-----|----------|
+| Dashboard | `/` | Index repos, view stats |
+| Graph | `/graph` | Interactive graph, filters, search |
+| Symbols | `/symbols` | Browse symbols, callers/callees |
+| Search | `/search` | Symbol search |
+| Graph RAG | `/rag` | Ask questions about code |
+| About | `/about` | Project info |
+
+### Graph Features
+
+- **Node Types:** Class (blue), Interface (purple), Method (green), Property (yellow), Field (red)
+- **Edge Types:** Contains, Calls, Inherits, Implements, Overrides
+- **Filters:** Toggle node/edge visibility in sidebar
+- **Search:** Highlight matching nodes
+- **Click:** View node details
+- **Fit to Screen:** Reset zoom with ⊡ button
 
 ---
 
 ## Troubleshooting
 
 ### "No compilation found"
-Make sure the project has a valid .csproj file.
+Ensure the project has a valid `.csproj` file with `<TargetFramework>`.
 
 ### "Symbols: 0"
-Try cleaning and rebuilding:
+Clean and rebuild:
 ```bash
 dotnet clean
 dotnet build
 dotnet run --project src/NexusCode.Indexer -- "path"
 ```
 
-### Performance with large projects
-For projects with 10K+ files, increase parallelism:
+### MCP Server timeout
+1. Build the MCP server first:
+```bash
+dotnet publish src/NexusCode.Mcp -c Release -o src/NexusCode.Mcp/publish
+```
+2. Use the published .exe in config:
+```json
+"command": ["D:\\NexusCode\\src\\NexusCode.Mcp\\publish\\NexusCode.Mcp.exe"]
+```
+
+### NexusGraph not loading
+1. Ensure API is running on port 5000
+2. Check browser console for errors
+3. Verify proxy config in `vite.config.ts`
+
+### Large project performance
+For projects with 10K+ files:
 ```bash
 dotnet run --project src/NexusCode.Indexer -- "path" --parallelism 8
 ```
+
+---
+
+## System Requirements
+
+- .NET 10 SDK
+- Node.js 18+ (for NexusGraph)
+- Ollama (optional, for embeddings)
+- Qdrant (optional, for vector storage)

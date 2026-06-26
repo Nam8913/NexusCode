@@ -8,8 +8,14 @@ public sealed class SqliteRepository : IDisposable
 {
     private readonly SqliteConnection _connection;
 
-    public SqliteRepository(string dbPath = "nexus.db")
+    public SqliteRepository(string? dbPath = null)
     {
+        if (string.IsNullOrEmpty(dbPath))
+        {
+            var nexusDir = Path.Combine(AppContext.BaseDirectory, ".nexus");
+            Directory.CreateDirectory(nexusDir);
+            dbPath = Path.Combine(nexusDir, "nexus.db");
+        }
         _connection = new SqliteConnection($"Data Source={dbPath}");
         _connection.Open();
         InitializeDatabase();
@@ -154,6 +160,55 @@ public sealed class SqliteRepository : IDisposable
         }
 
         return symbols;
+    }
+
+    public void LoadGraph(KnowledgeGraph graph)
+    {
+        var nodeCmd = _connection.CreateCommand();
+        nodeCmd.CommandText = "SELECT id, full_name, label, kind, metadata FROM graph_nodes";
+
+        using (var reader = nodeCmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                var node = new GraphNodeEntity
+                {
+                    Id = (byte[])reader["id"],
+                    FullName = reader.GetString(1),
+                    Label = reader.GetString(2),
+                    Kind = (NodeKind)reader.GetInt32(3),
+                    Metadata = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reader.GetString(4)) ?? new()
+                };
+                graph.AddNode(node);
+            }
+        }
+
+        var edgeCmd = _connection.CreateCommand();
+        edgeCmd.CommandText = "SELECT id, source_id, target_id, kind, weight FROM graph_edges";
+
+        using (var reader = edgeCmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                var edge = new GraphEdgeEntity
+                {
+                    Id = (byte[])reader["id"],
+                    SourceId = (byte[])reader["source_id"],
+                    TargetId = (byte[])reader["target_id"],
+                    Kind = (EdgeKind)reader.GetInt32(3),
+                    Weight = reader.GetDouble(4)
+                };
+                graph.AddEdge(edge);
+            }
+        }
+    }
+
+    public bool HasPersistedData()
+    {
+        var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM symbols";
+        var count = (long)cmd.ExecuteScalar()!;
+        return count > 0;
     }
 
     private List<GraphNodeEntity> GetAllNodes(KnowledgeGraph graph)

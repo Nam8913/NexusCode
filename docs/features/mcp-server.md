@@ -2,12 +2,13 @@
 
 ## Purpose
 
-Model Context Protocol server exposing 10 tools for AI agents.
+Model Context Protocol server exposing 12 tools for AI agents.
 
-## Tools
+## Tools (12 total)
 
 | Tool | Description |
 |------|-------------|
+| index_repository | Index a C# repository |
 | find_symbol | Find symbol by name |
 | find_references | Find all references |
 | find_callers | Find callers of method |
@@ -16,9 +17,10 @@ Model Context Protocol server exposing 10 tools for AI agents.
 | find_derived_types | Find derived types |
 | search_code | Search code content |
 | get_symbol_info | Get symbol details |
-| get_graph_stats | Get graph statistics |
 | explain_architecture | Explain codebase architecture |
+| blast_radius | Analyze impact of changing a symbol |
+| pop_symbols | List symbols by kind and name filter |
 
 ## Current Status
 
-✅ Complete - All 10 tools implemented
+✅ Complete - All 12 tools implemented and tested

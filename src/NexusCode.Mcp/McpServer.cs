@@ -113,13 +113,13 @@ public sealed class McpServer
             Handler = HandleGetSymbolInfo
         };
 
-        _tools["get_graph_stats"] = new McpTool
-        {
-            Name = "get_graph_stats",
-            Description = "Get knowledge graph statistics",
-            InputSchema = new Dictionary<string, object>(),
-            Handler = HandleGetGraphStats
-        };
+        // _tools["get_graph_stats"] = new McpTool
+        // {
+        //     Name = "get_graph_stats",
+        //     Description = "Get knowledge graph statistics",
+        //     InputSchema = new Dictionary<string, object>(),
+        //     Handler = HandleGetGraphStats
+        // };
 
         _tools["explain_architecture"] = new McpTool
         {
@@ -128,15 +128,40 @@ public sealed class McpServer
             InputSchema = new Dictionary<string, object>(),
             Handler = HandleExplainArchitecture
         };
+
+        _tools["blast_radius"] = new McpTool
+        {
+            Name = "blast_radius",
+            Description = "Analyze blast radius - find all code affected if a symbol is changed (callers, callees, references, tests)",
+            InputSchema = new Dictionary<string, object>
+            {
+                ["symbolName"] = new Dictionary<string, string> { ["type"] = "string", ["description"] = "Fully qualified symbol name to analyze" },
+                ["depth"] = new Dictionary<string, string> { ["type"] = "integer", ["description"] = "Traversal depth (default: 2)" }
+            },
+            Handler = HandleBlastRadius
+        };
+
+        _tools["list_symbols"] = new McpTool
+        {
+            Name = "list_symbols",
+            Description = "List all symbols filtered by kind and optional name search",
+            InputSchema = new Dictionary<string, object>
+            {
+                ["kind"] = new Dictionary<string, string> { ["type"] = "string", ["description"] = "Filter: Class, Method, Property, Field, Event, Interface, Struct, Enum, Namespace (or empty for all)" },
+                ["name"] = new Dictionary<string, string> { ["type"] = "string", ["description"] = "Optional name filter - find symbols containing this text (empty = list all)" }
+            },
+            Handler = HandleListSymbols
+        };
     }
 
-    public async Task<McpResponse> HandleRequest(McpRequest request)
+    public async Task<McpResponse?> HandleRequest(McpRequest request)
     {
         try
         {
-            if (request.Method == "initialize")
+            // Handle notifications (no id = no response needed)
+            if (request.Id == null && request.Method == "notifications/initialized")
             {
-                return CreateInitializeResponse();
+                return null; // No response needed for notifications
             }
 
             if (request.Method == "tools/list")
@@ -329,7 +354,233 @@ public sealed class McpServer
         return JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private McpResponse CreateInitializeResponse()
+    private string HandleBlastRadius(JsonElement? args)
+    {
+        var symbolName = args?.GetProperty("symbolName").GetString() ?? "";
+        var depth = args?.GetProperty("depth").GetInt32() ?? 2;
+
+        var symbol = _symbolTable.GetByFullName(symbolName);
+        if (symbol == null)
+            return JsonSerializer.Serialize(new { error = $"Symbol not found: {symbolName}" });
+
+        // Find callers (what calls this symbol)
+        var callers = _searchEngine.FindCallers(symbol.Id, depth).ToList();
+
+        // Find callees (what this symbol calls)
+        var callees = _searchEngine.FindCallees(symbol.Id, depth).ToList();
+
+        // Find references
+        var references = _searchEngine.FindReferences(symbol.Id);
+
+        // Find derived types if it's a class/interface
+        var derivedTypes = new List<SymbolEntity>();
+        if (symbol.Kind == SymbolKind.Type)
+        {
+            derivedTypes = _searchEngine.FindDerivedTypes(symbol.Id).ToList();
+        }
+
+        // Find implementations if it's an interface
+        var implementations = new List<SymbolEntity>();
+        if (symbol.Kind == SymbolKind.Type && symbol.TypeName == "Interface")
+        {
+            implementations = _searchEngine.FindImplementations(symbol.Id).ToList();
+        }
+
+        // Find test files that reference this symbol
+        var testReferences = references.Where(r => r.Context != null && (r.Context.Contains("Test") || r.Context.Contains("test"))).ToList();
+
+        // Calculate risk score
+        var riskScore = CalculateRiskScore(callers.Count, callees.Count, references.Count, derivedTypes.Count, implementations.Count);
+
+        var output = new
+        {
+            symbol = new
+            {
+                name = symbol.Name,
+                fullName = symbol.FullName,
+                kind = symbol.Kind.ToString(),
+                filePath = symbol.FilePath,
+                startLine = symbol.StartLine,
+                endLine = symbol.EndLine
+            },
+            blastRadius = new
+            {
+                riskScore,
+                riskLevel = GetRiskLevel(riskScore),
+                summary = GenerateBlastRadiusSummary(symbol, callers.Count, callees.Count, references.Count, derivedTypes.Count, implementations.Count, testReferences.Count)
+            },
+            callers = callers.Select(c => new
+            {
+                name = c.Symbol.Name,
+                fullName = c.Symbol.FullName,
+                filePath = c.Symbol.FilePath,
+                depth = c.Depth
+            }).ToList(),
+            callees = callees.Select(c => new
+            {
+                name = c.Symbol.Name,
+                fullName = c.Symbol.FullName,
+                filePath = c.Symbol.FilePath,
+                depth = c.Depth
+            }).ToList(),
+            references = references.Select(r => new
+            {
+                line = r.Line,
+                column = r.Column,
+                kind = r.Kind.ToString(),
+                context = r.Context
+            }).ToList(),
+            derivedTypes = derivedTypes.Select(d => new
+            {
+                name = d.Name,
+                fullName = d.FullName,
+                filePath = d.FilePath
+            }).ToList(),
+            implementations = implementations.Select(i => new
+            {
+                name = i.Name,
+                fullName = i.FullName,
+                filePath = i.FilePath
+            }).ToList(),
+            tests = testReferences.Select(t => new
+            {
+                line = t.Line,
+                column = t.Column,
+                context = t.Context
+            }).ToList(),
+            impact = new
+            {
+                directCallers = callers.Count(c => c.Depth == 1),
+                indirectCallers = callers.Count(c => c.Depth > 1),
+                directCallees = callees.Count(c => c.Depth == 1),
+                indirectCallees = callees.Count(c => c.Depth > 1),
+                totalReferences = references.Count,
+                totalDerivedTypes = derivedTypes.Count,
+                totalImplementations = implementations.Count,
+                testCoverage = testReferences.Count > 0 ? "Covered" : "Not covered"
+            }
+        };
+        return JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static int CalculateRiskScore(int callers, int callees, int references, int derivedTypes, int implementations)
+    {
+        int score = 0;
+        score += Math.Min(callers * 5, 50);      // Max 50 points from callers
+        score += Math.Min(callees * 2, 20);       // Max 20 points from callees
+        score += Math.Min(references * 1, 15);    // Max 15 points from references
+        score += Math.Min(derivedTypes * 10, 15); // Max 15 points from derived types
+        score += Math.Min(implementations * 5, 10); // Max 10 points from implementations
+        return Math.Min(score, 100);
+    }
+
+    private static string GetRiskLevel(int score)
+    {
+        return score switch
+        {
+            >= 70 => "HIGH",
+            >= 40 => "MEDIUM",
+            >= 15 => "LOW",
+            _ => "MINIMAL"
+        };
+    }
+
+    private static string GenerateBlastRadiusSummary(SymbolEntity symbol, int callers, int callees, int references, int derivedTypes, int implementations, int tests)
+    {
+        var parts = new List<string>();
+
+        parts.Add($"Changing {symbol.Name} ({symbol.Kind}) would directly affect {callers} caller(s).");
+
+        if (callees > 0)
+            parts.Add($"It calls {callees} other method(s) that may need updates.");
+
+        if (references > 1)
+            parts.Add($"There are {references} total references to this symbol.");
+
+        if (derivedTypes > 0)
+            parts.Add($"{derivedTypes} type(s) inherit from this type and may be impacted.");
+
+        if (implementations > 0)
+            parts.Add($"{implementations} type(s) implement this interface.");
+
+        if (tests == 0)
+            parts.Add("⚠️ WARNING: No test coverage found for this symbol.");
+        else
+            parts.Add($"✓ {tests} test(s) reference this symbol.");
+
+        return string.Join(" ", parts);
+    }
+
+    private string HandleListSymbols(JsonElement? args)
+    {
+        var kindStr = args?.TryGetProperty("kind", out var k) == true ? k.GetString() ?? "" : "";
+        var nameFilter = args?.TryGetProperty("name", out var n) == true ? n.GetString() ?? "" : "";
+
+        SymbolKind? kind = kindStr?.ToLower() switch
+        {
+            "class" or "type" => SymbolKind.Type,
+            "method" => SymbolKind.Method,
+            "property" => SymbolKind.Property,
+            "field" => SymbolKind.Field,
+            "event" => SymbolKind.Event,
+            "interface" => SymbolKind.Type,
+            "struct" => SymbolKind.Type,
+            "enum" => SymbolKind.Type,
+            "namespace" => SymbolKind.Namespace,
+            _ => null
+        };
+
+        List<SymbolEntity> symbols;
+        if (kind.HasValue)
+        {
+            symbols = _symbolTable.GetByKind(kind.Value).ToList();
+            // Special filter for interface/struct/enum
+            if (kindStr?.ToLower() is "interface" or "struct" or "enum")
+            {
+                symbols = symbols.Where(s => s.TypeName?.Equals(kindStr, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            }
+        }
+        else
+        {
+            symbols = _symbolTable.GetByKind(SymbolKind.Type)
+                .Concat(_symbolTable.GetByKind(SymbolKind.Method))
+                .Concat(_symbolTable.GetByKind(SymbolKind.Property))
+                .Concat(_symbolTable.GetByKind(SymbolKind.Field))
+                .Concat(_symbolTable.GetByKind(SymbolKind.Event))
+                .ToList();
+        }
+
+        // Apply name filter if provided
+        if (!string.IsNullOrEmpty(nameFilter))
+        {
+            var lowerFilter = nameFilter.ToLower();
+            symbols = symbols.Where(s => s.Name.Contains(lowerFilter, StringComparison.OrdinalIgnoreCase) ||
+                                          s.FullName.Contains(lowerFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // Sort by name
+        symbols = symbols.OrderBy(s => s.Name).ToList();
+
+        var output = new
+        {
+            totalCount = symbols.Count,
+            kind = kindStr,
+            nameFilter = nameFilter,
+            symbols = symbols.Take(100).Select(s => new
+            {
+                name = s.Name,
+                fullName = s.FullName,
+                kind = s.Kind.ToString(),
+                typeName = s.TypeName,
+                filePath = s.FilePath,
+                line = s.StartLine
+            }).ToList()
+        };
+
+        return JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    public McpResponse CreateInitializeResponse()
     {
         return new McpResponse
         {
@@ -342,7 +593,7 @@ public sealed class McpServer
                 },
                 ServerInfo = new McpServerInfo
                 {
-                    Name = "nexus-code-intelligence",
+                    Name = "NexusCode",
                     Version = "1.0.0"
                 }
             }
@@ -388,24 +639,34 @@ public class McpTool
 
 public class McpRequest
 {
+    [System.Text.Json.Serialization.JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; set; } = "2.0";
+    [System.Text.Json.Serialization.JsonPropertyName("id")]
     public int? Id { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("method")]
     public string Method { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonPropertyName("params")]
     public JsonElement? Params { get; set; }
 }
 
 public class McpResponse
 {
+    [System.Text.Json.Serialization.JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; set; } = "2.0";
+    [System.Text.Json.Serialization.JsonPropertyName("id")]
     public int? Id { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("result")]
     public McpResult? Result { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("error")]
     public McpError? Error { get; set; }
 }
 
 public class McpResult
 {
+    [System.Text.Json.Serialization.JsonPropertyName("protocolVersion")]
     public string? ProtocolVersion { get; set; }
     public McpCapabilities? Capabilities { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("serverInfo")]
     public McpServerInfo? ServerInfo { get; set; }
     public IEnumerable<McpContent>? Content { get; set; }
     public IEnumerable<McpToolInfo>? Tools { get; set; }

@@ -2,21 +2,21 @@
 
 ## High Priority
 
-- [ ] Unit tests for NexusGraph components
-- [ ] Integration tests for API + Frontend
 - [ ] Graph export (PNG/SVG)
-- [ ] Keyboard shortcuts
+- [ ] Unit tests for HybridSearchEngine
+- [ ] Unit tests for IncrementalEmbeddingEngine
+- [ ] Performance benchmarks
 
 ## Medium Priority
 
-- [ ] Responsive design for mobile
+- [ ] Responsive design
+- [ ] Keyboard shortcuts
 - [ ] Dark/light theme toggle
 - [ ] Graph layout persistence
-- [ ] Performance optimization for large graphs
 
 ## Low Priority
 
-- [ ] Multi-language support (TypeScript, Python)
+- [ ] Multi-language support
+- [ ] PostgreSQL adapter
 - [ ] Collaborative features
 - [ ] Cloud sync
-- [ ] Analytics dashboard

@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\NexusCode.Domain\NexusCode.Domain.csproj" />
     <ProjectReference Include="..\NexusCode.Roslyn\NexusCode.Roslyn.csproj" />
+    <ProjectReference Include="..\NexusCode.Database\NexusCode.Database.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,11 +7,20 @@ export default function Dashboard() {
   const [isIndexing, setIsIndexing] = useState(false);
   const [result, setResult] = useState<IndexResult | null>(null);
   const [status, setStatus] = useState<any>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => { loadStatus(); }, []);
 
   async function loadStatus() {
-    try { setStatus(await api.index.status()); } catch {}
+    try {
+      setStatusLoading(true);
+      setStatusError(null);
+      setStatus(await api.index.status());
+    } catch (err: any) {
+      setStatusError(err.message || 'Failed to load status');
+    }
+    setStatusLoading(false);
   }
 
   async function handleIndex() {
@@ -34,8 +43,8 @@ export default function Dashboard() {
       <div className="card">
         <h2>Index Repository</h2>
         <div className="input-group">
-          <input value={repoPath} onChange={e => setRepoPath(e.target.value)} placeholder="Enter repository path (e.g. D:\MyProject)" className="input" disabled={isIndexing} onKeyDown={e => e.key === 'Enter' && handleIndex()} />
-          <button onClick={handleIndex} disabled={isIndexing} className="btn btn-primary">
+          <input value={repoPath} onChange={e => setRepoPath(e.target.value)} placeholder="Enter repository path (e.g. D:\MyProject)" className="input" disabled={isIndexing} onKeyDown={e => e.key === 'Enter' && handleIndex()} aria-label="Repository path" />
+          <button onClick={handleIndex} disabled={isIndexing} className="btn btn-primary" aria-label="Index repository">
             {isIndexing ? <><span className="loading-spinner"></span> Indexing...</> : 'Index'}
           </button>
         </div>
@@ -65,7 +74,9 @@ export default function Dashboard() {
         )}
       </div>
 
-      {status && (
+      {statusLoading && <div className="card"><div className="loading-card"><div className="loading-spinner-large"></div><p>Loading status...</p></div></div>}
+      {statusError && !statusLoading && <div className="result-card error"><div className="result-header"><span className="icon-error">✗</span><h3>Status Error</h3></div><p>{statusError}</p></div>}
+      {status && !statusLoading && (
         <div className="stats-grid">
           <div className={`stat-card ${status.symbols > 0 ? 'active' : ''}`}><div className="stat-value">{status.symbols}</div><div className="stat-label">Symbols</div></div>
           <div className={`stat-card ${status.graphNodes > 0 ? 'active' : ''}`}><div className="stat-value">{status.graphNodes}</div><div className="stat-label">Graph Nodes</div></div>

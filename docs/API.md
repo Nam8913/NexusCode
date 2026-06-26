@@ -193,6 +193,37 @@ Access Swagger UI at:
 http://localhost:5000/swagger
 ```
 
+## MCP Tools (12 tools available)
+
+The NexusCode MCP server provides 12 tools for AI agents:
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `index_repository` | Index a C# repository | `path` |
+| `find_symbol` | Find symbol by name | `query`, `kind` |
+| `find_references` | Find all references | `symbolName` |
+| `find_callers` | Find callers of a method | `method` |
+| `find_callees` | Find callees of a method | `method` |
+| `find_implementations` | Find interface implementations | `interfaceName` |
+| `find_derived_types` | Find derived types | `typeName` |
+| `search_code` | Search code | `query` |
+| `get_symbol_info` | Get symbol details | `symbolName` |
+| `explain_architecture` | Explain architecture | - |
+| `blast_radius` | Analyze change impact | `symbolName`, `depth` |
+| `pop_symbols` | List symbols by kind/name | `kind`, `name` |
+
+### MCP Configuration
+
+```json
+{
+  "mcp": {
+    "NexusCode": {
+      "command": "D:\\NexusCode\\publish\\NexusCode.Mcp.exe"
+    }
+  }
+}
+```
+
 ## Error Responses
 
 All error responses follow this format:

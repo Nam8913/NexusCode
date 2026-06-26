@@ -19,10 +19,9 @@ public sealed class KnowledgeGraph
 
     public void AddNode(GraphNodeEntity node)
     {
-        _nodes[node.Id] = node;
-
         lock (_lock)
         {
+            _nodes[node.Id] = node;
             AddToIndex(_nodesByKind, node.Kind, node.Id);
 
             if (node.Metadata.TryGetValue("FilePath", out var filePath))
@@ -32,21 +31,17 @@ public sealed class KnowledgeGraph
 
     public void UpdateNode(GraphNodeEntity node)
     {
-        if (_nodes.TryGetValue(node.Id, out var existing))
+        lock (_lock)
         {
-            lock (_lock)
+            if (_nodes.TryGetValue(node.Id, out var existing))
             {
                 if (existing.Metadata.TryGetValue("FilePath", out var oldFilePath))
                     RemoveFromIndex(_nodesByFile, oldFilePath, node.Id);
 
                 RemoveFromIndex(_nodesByKind, existing.Kind, node.Id);
             }
-        }
 
-        _nodes[node.Id] = node;
-
-        lock (_lock)
-        {
+            _nodes[node.Id] = node;
             AddToIndex(_nodesByKind, node.Kind, node.Id);
 
             if (node.Metadata.TryGetValue("FilePath", out var filePath))
@@ -56,37 +51,44 @@ public sealed class KnowledgeGraph
 
     public void RemoveNode(byte[] id)
     {
-        if (_nodes.TryRemove(id, out var entity))
+        GraphNodeEntity? entity = null;
+        List<byte[]>? outgoing = null;
+        List<byte[]>? incoming = null;
+
+        lock (_lock)
         {
-            lock (_lock)
+            _nodes.TryRemove(id, out entity);
+            if (entity != null)
             {
                 RemoveFromIndex(_nodesByKind, entity.Kind, id);
-
                 if (entity.Metadata.TryGetValue("FilePath", out var filePath))
                     RemoveFromIndex(_nodesByFile, filePath, id);
             }
 
-            if (_outgoingEdges.TryRemove(id, out var outgoing))
+            _outgoingEdges.TryRemove(id, out outgoing);
+            _incomingEdges.TryRemove(id, out incoming);
+        }
+
+        if (outgoing != null)
+        {
+            foreach (var edgeId in outgoing)
             {
-                foreach (var edgeId in outgoing)
+                if (_edges.TryRemove(edgeId, out var edge))
                 {
-                    if (_edges.TryRemove(edgeId, out var edge))
-                    {
-                        RemoveFromIndex(_edgesByKind, edge.Kind, edgeId);
-                        RemoveFromList(_incomingEdges, edge.TargetId, edgeId);
-                    }
+                    RemoveFromIndex(_edgesByKind, edge.Kind, edgeId);
+                    RemoveFromList(_incomingEdges, edge.TargetId, edgeId);
                 }
             }
+        }
 
-            if (_incomingEdges.TryRemove(id, out var incoming))
+        if (incoming != null)
+        {
+            foreach (var edgeId in incoming)
             {
-                foreach (var edgeId in incoming)
+                if (_edges.TryRemove(edgeId, out var edge))
                 {
-                    if (_edges.TryRemove(edgeId, out var edge))
-                    {
-                        RemoveFromIndex(_edgesByKind, edge.Kind, edgeId);
-                        RemoveFromList(_outgoingEdges, edge.SourceId, edgeId);
-                    }
+                    RemoveFromIndex(_edgesByKind, edge.Kind, edgeId);
+                    RemoveFromList(_outgoingEdges, edge.SourceId, edgeId);
                 }
             }
         }

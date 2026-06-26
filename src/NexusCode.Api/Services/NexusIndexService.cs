@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using NexusCode.Domain;
 using NexusCode.Roslyn;
+using NexusCode.Database;
 
 namespace NexusCode.Api.Services;
 
@@ -11,6 +12,8 @@ public sealed class NexusIndexService
     private readonly KnowledgeGraph _graph;
     private readonly SymbolSearchEngine _searchEngine;
     private readonly FileScanner _scanner;
+    private readonly SqliteRepository _repository;
+    private readonly RepositoryWatcher _watcher;
     private bool _indexed;
 
     public NexusIndexService()
@@ -20,12 +23,52 @@ public sealed class NexusIndexService
         _graph = new KnowledgeGraph();
         _searchEngine = new SymbolSearchEngine(_symbolTable, _graph);
         _scanner = new FileScanner();
+        _repository = new SqliteRepository();
+        _watcher = new RepositoryWatcher(_engine, _symbolTable, _graph);
+
+        RestoreFromDatabase();
+    }
+
+    private void RestoreFromDatabase()
+    {
+        try
+        {
+            if (_repository.HasPersistedData())
+            {
+                var symbols = _repository.LoadSymbols();
+                foreach (var symbol in symbols)
+                    _symbolTable.Add(symbol);
+
+                _repository.LoadGraph(_graph);
+
+                if (_symbolTable.Count > 0)
+                {
+                    _indexed = true;
+                    Console.WriteLine($"[NexusIndex] Restored {_symbolTable.Count} symbols, {_graph.NodeCount} graph nodes from SQLite");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[NexusIndex] Failed to restore from database: {ex.Message}");
+        }
     }
 
     public SymbolSearchEngine SearchEngine => _searchEngine;
     public SymbolTable SymbolTable => _symbolTable;
     public KnowledgeGraph Graph => _graph;
     public bool IsIndexed => _indexed;
+    public bool IsWatching => _watcher.IsWatching;
+
+    public void StartWatching(string repositoryPath)
+    {
+        _watcher.StartWatching(repositoryPath);
+    }
+
+    public void StopWatching()
+    {
+        _watcher.StopWatching();
+    }
 
     public GraphRAGResult GraphRAG(string question)
     {
@@ -106,6 +149,30 @@ public sealed class NexusIndexService
             });
 
             _indexed = true;
+
+            try
+            {
+                _repository.SaveSymbols(_symbolTable.GetByKind(NexusCode.Domain.SymbolKind.Type)
+                    .Concat(_symbolTable.GetByKind(NexusCode.Domain.SymbolKind.Method))
+                    .Concat(_symbolTable.GetByKind(NexusCode.Domain.SymbolKind.Property))
+                    .Concat(_symbolTable.GetByKind(NexusCode.Domain.SymbolKind.Field)));
+                _repository.SaveGraph(_graph);
+                Console.WriteLine("[NexusIndex] Saved to SQLite");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[NexusIndex] Failed to save to SQLite: {ex.Message}");
+            }
+
+            try
+            {
+                _watcher.StartWatching(repositoryPath);
+                Console.WriteLine("[NexusIndex] Started file watcher");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[NexusIndex] Failed to start watcher: {ex.Message}");
+            }
 
             result.Success = true;
             result.FilesIndexed = processedFiles;
