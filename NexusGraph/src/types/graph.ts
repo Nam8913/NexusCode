@@ -13,6 +13,8 @@ export interface GraphEdge {
   target: string;
   kind: string;
   color: string;
+  sourceLabel: string;
+  targetLabel: string;
 }
 
 export interface GraphData {
@@ -61,3 +63,13 @@ export interface RagResult {
 export type NodeKindFilter = Record<string, boolean>;
 export type EdgeKindFilter = Record<string, boolean>;
 export type Page = 'dashboard' | 'graph' | 'symbols' | 'search' | 'rag' | 'about';
+
+export interface RepositoryInfo {
+  name: string;
+  path: string;
+  indexedAt: string | null;
+  fileCount: number;
+  symbolCount: number;
+  nodeCount: number;
+  edgeCount: number;
+}

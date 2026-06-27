@@ -17,6 +17,7 @@ export default function App() {
   const [edgeKinds, setEdgeKinds] = useState<EdgeKindFilter>(
     Object.fromEntries(Object.keys(EDGE_COLORS).map(k => [k, true]))
   );
+  const [disabledProjects, setDisabledProjects] = useState<Set<string>>(new Set());
 
   const handleNodeKindToggle = useCallback((kind: string) => {
     setNodeKinds(prev => ({ ...prev, [kind]: !prev[kind] }));
@@ -26,15 +27,27 @@ export default function App() {
     setEdgeKinds(prev => ({ ...prev, [kind]: !prev[kind] }));
   }, []);
 
+  const handleProjectToggle = useCallback((projectName: string) => {
+    setDisabledProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectName)) {
+        next.delete(projectName);
+      } else {
+        next.add(projectName);
+      }
+      return next;
+    });
+  }, []);
+
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard />;
-      case 'graph': return <GraphPage nodeKinds={nodeKinds} edgeKinds={edgeKinds} onNodeKindToggle={handleNodeKindToggle} onEdgeKindToggle={handleEdgeKindToggle} />;
-      case 'symbols': return <Symbols />;
-      case 'search': return <SearchPage />;
+      case 'dashboard': return <Dashboard disabledProjects={disabledProjects} onProjectToggle={handleProjectToggle} />;
+      case 'graph': return <GraphPage nodeKinds={nodeKinds} edgeKinds={edgeKinds} onNodeKindToggle={handleNodeKindToggle} onEdgeKindToggle={handleEdgeKindToggle} disabledProjects={disabledProjects} />;
+      case 'symbols': return <Symbols disabledProjects={disabledProjects} />;
+      case 'search': return <SearchPage disabledProjects={disabledProjects} />;
       case 'rag': return <RagPage />;
       case 'about': return <AboutPage />;
-      default: return <Dashboard />;
+      default: return <Dashboard disabledProjects={disabledProjects} onProjectToggle={handleProjectToggle} />;
     }
   };
 

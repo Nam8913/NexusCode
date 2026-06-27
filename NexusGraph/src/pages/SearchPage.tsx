@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { api } from '../utils/api';
 import { SymbolEntity } from '../types/graph';
 
-export default function SearchPage() {
+interface Props {
+  disabledProjects: Set<string>;
+}
+
+export default function SearchPage({ disabledProjects }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SymbolEntity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -11,13 +15,21 @@ export default function SearchPage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function filterByProject(items: SymbolEntity[]): SymbolEntity[] {
+    if (disabledProjects.size === 0) return items;
+    return items.filter(s => {
+      const fp = (s.filePath || '').toLowerCase();
+      return !Array.from(disabledProjects).some(name => fp.includes(name.toLowerCase()));
+    });
+  }
+
   async function search() {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
       const data = await api.search.symbol(query);
-      setResults(data);
+      setResults(filterByProject(data));
     } catch (err: any) {
       setError(err.message || 'Search failed');
       setResults([]);

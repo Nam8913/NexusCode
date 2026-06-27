@@ -8,7 +8,30 @@
 
 **Purpose:** Roslyn-based code intelligence for C# and Unity with Knowledge Graph, Symbol Search, MCP integration, and Graph RAG.
 
-**Status:** Production-ready. 12 projects, 63 source files, 8,362 lines, 42 tests passing, 12 MCP tools operational.
+**Status:** Production-ready. 12 projects, 65+ source files, 8,500+ lines, 42 tests passing, 12 MCP tools operational.
+
+---
+
+## Recent Changes (v2.4.0)
+
+### Bug Fixes
+- Duplicate color definitions unified via `ColorConfig.cs`
+- Config file race condition fixed with `FileStream.Lock`
+- Silent exception logging added to persistence layer
+- GraphPage stale closure and memory leak fixed
+- Dashboard delete confirmation added
+
+### New Features
+- `blast_radius` MCP tool - analyze impact of symbol changes
+- `pop_symbols` MCP tool - list symbols by kind/name
+- `ColorConfig.cs` - single source of truth for colors
+- `IndexingService` - extracted indexing pipeline
+- `PersistenceService` - extracted SQLite persistence
+- `MultiRepoManagerService` - DI-friendly wrapper
+
+### Removed
+- `get_graph_stats` tool (merged into `explain_architecture`)
+- `MultiRepoManagerStatic` static singleton (replaced by DI)
 
 ---
 
@@ -114,11 +137,10 @@ AI Agent → JSON-RPC → McpServer → Tools → Results
 | Metric | Value |
 |--------|-------|
 | Projects | 12 (.NET) + 1 (React) |
-| Source files | 63 |
-| Lines of code | ~8,362 |
+| Source files | 65+ |
+| Lines of code | ~8,500 |
 | Test methods | 42 |
 | API endpoints | 16 |
 | MCP tools | 12 |
-| MCP tools | 11 |
 | Frontend pages | 6 |
 | Documentation files | 45 |

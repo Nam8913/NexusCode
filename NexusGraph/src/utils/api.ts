@@ -1,4 +1,4 @@
-import { GraphData, GraphStats, IndexResult, SymbolEntity, RagResult } from '../types/graph';
+import { GraphData, GraphStats, IndexResult, SymbolEntity, RagResult, RepositoryInfo } from '../types/graph';
 
 const API_BASE = '/api';
 
@@ -39,5 +39,9 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question })
     })
+  },
+  multiRepo: {
+    list: () => fetchJson<RepositoryInfo[]>(`${API_BASE}/multirepo/list`),
+    remove: (repoName: string) => fetchJson<{ message: string }>(`${API_BASE}/multirepo/${encodeURIComponent(repoName)}`, { method: 'DELETE' })
   }
 };

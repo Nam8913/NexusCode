@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { api } from '../utils/api';
 import { SymbolEntity } from '../types/graph';
 
-export default function Symbols() {
+interface Props {
+  disabledProjects: Set<string>;
+}
+
+export default function Symbols({ disabledProjects }: Props) {
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState('');
   const [results, setResults] = useState<SymbolEntity[]>([]);
@@ -13,13 +17,21 @@ export default function Symbols() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function filterByProject(items: SymbolEntity[]): SymbolEntity[] {
+    if (disabledProjects.size === 0) return items;
+    return items.filter(s => {
+      const fp = (s.filePath || '').toLowerCase();
+      return !Array.from(disabledProjects).some(name => fp.includes(name.toLowerCase()));
+    });
+  }
+
   async function search() {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
       const data = await api.search.symbol(query, kind || undefined);
-      setResults(data);
+      setResults(filterByProject(data));
     } catch (err: any) {
       setError(err.message || 'Search failed');
       setResults([]);

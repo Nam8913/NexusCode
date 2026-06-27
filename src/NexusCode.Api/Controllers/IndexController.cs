@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NexusCode.Api.Services;
 using NexusCode.Domain;
+using NexusCode.Roslyn;
 
 namespace NexusCode.Api.Controllers;
 
@@ -18,10 +19,17 @@ public class IndexController : ControllerBase
     [HttpPost("repository")]
     public async Task<IActionResult> IndexRepository([FromBody] IndexRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.Path))
+            return BadRequest(new { error = "Repository path is required" });
+
         if (!Directory.Exists(request.Path))
-            return BadRequest(new { error = $"Directory not found: {request.Path}" });
+            return NotFound(new { error = $"Directory not found: {request.Path}" });
 
         var result = await _indexService.IndexRepositoryAsync(request.Path, progress: null, ct);
+
+        if (!result.Success)
+            return StatusCode(500, new { error = result.Error, result });
+
         return Ok(result);
     }
 

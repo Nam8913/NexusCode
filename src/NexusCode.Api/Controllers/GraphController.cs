@@ -73,33 +73,6 @@ public class GraphController : ControllerBase
         if (!_indexService.IsIndexed)
             return BadRequest(new { error = "Repository not indexed" });
 
-        var nodeColors = new Dictionary<string, string>
-        {
-            ["Class"] = "#58a6ff",
-            ["Interface"] = "#a371f7",
-            ["Method"] = "#3fb950",
-            ["Property"] = "#d29922",
-            ["Field"] = "#f85149",
-            ["Enum"] = "#f0883e",
-            ["Namespace"] = "#8b949e",
-            ["File"] = "#58a6ff",
-            ["Struct"] = "#79c0ff",
-            ["Record"] = "#d2a8ff",
-            ["Event"] = "#ffa657"
-        };
-
-        var edgeColors = new Dictionary<string, string>
-        {
-            ["Contains"] = "#30363d",
-            ["Calls"] = "#3fb950",
-            ["Inherits"] = "#58a6ff",
-            ["Implements"] = "#a371f7",
-            ["Overrides"] = "#d29922",
-            ["Declares"] = "#8b949e",
-            ["Uses"] = "#f0883e",
-            ["References"] = "#f85149"
-        };
-
         var nodes = new List<object>();
         foreach (var kind in Enum.GetValues<NodeKind>())
         {
@@ -111,7 +84,7 @@ public class GraphController : ControllerBase
                     id = Convert.ToBase64String(n.Id),
                     label = n.Label,
                     kind = n.Kind.ToString(),
-                    color = nodeColors.GetValueOrDefault(n.Kind.ToString(), "#8b949e"),
+                    color = ColorConfig.GetNodeColor(n.Kind.ToString()),
                     size = n.Kind == NodeKind.Class || n.Kind == NodeKind.Interface ? 10 : 5,
                     metadata = n.Metadata
                 });
@@ -124,13 +97,17 @@ public class GraphController : ControllerBase
             var kindEdges = _indexService.Graph.GetEdgesByKind(kind);
             foreach (var e in kindEdges)
             {
+                var sourceNode = _indexService.Graph.GetNode(e.SourceId);
+                var targetNode = _indexService.Graph.GetNode(e.TargetId);
                 edges.Add(new
                 {
                     id = Convert.ToBase64String(e.Id),
                     source = Convert.ToBase64String(e.SourceId),
                     target = Convert.ToBase64String(e.TargetId),
+                    sourceLabel = sourceNode?.Label ?? sourceNode?.FullName ?? $"External({e.Kind})",
+                    targetLabel = targetNode?.Label ?? targetNode?.FullName ?? $"External({e.Kind})",
                     kind = e.Kind.ToString(),
-                    color = edgeColors.GetValueOrDefault(e.Kind.ToString(), "#30363d")
+                    color = ColorConfig.GetEdgeColor(e.Kind.ToString())
                 });
             }
         }

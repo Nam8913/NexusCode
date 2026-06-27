@@ -3,6 +3,9 @@ using NexusCode.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<IndexingService>();
+builder.Services.AddSingleton<PersistenceService>();
+builder.Services.AddSingleton<MultiRepoManagerService>();
 builder.Services.AddSingleton<NexusIndexService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

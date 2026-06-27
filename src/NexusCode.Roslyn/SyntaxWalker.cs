@@ -170,14 +170,14 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
             var containingSymbol = FindContainingSymbol(node);
             if (containingSymbol != null)
             {
-                var sourceId = GraphNodeId.FromFullName(containingSymbol.FullName);
-                var targetId = GraphNodeId.FromFullName(methodSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+                var sourceId = containingSymbol.Id.ToByteArray();
+                var targetId = GetSymbolId(methodSymbol).ToByteArray();
 
                 GraphEdges.Add(new GraphEdgeEntity
                 {
-                    Id = ComputeEdgeId(sourceId.Hash, targetId.Hash, EdgeKind.Calls),
-                    SourceId = sourceId.Hash,
-                    TargetId = targetId.Hash,
+                    Id = ComputeEdgeId(sourceId, targetId, EdgeKind.Calls),
+                    SourceId = sourceId,
+                    TargetId = targetId,
                     Kind = EdgeKind.Calls
                 });
 
@@ -430,7 +430,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
             FullName = entity.FullName,
             Label = entity.Name,
             Kind = nodeKind,
-            Metadata = new Dictionary<string, string>(entity.Metadata)
+            Metadata = new Dictionary<string, string>(entity.Metadata) { ["FilePath"] = _filePath }
         });
 
         _typeIdMap[entity.FullName] = entity.Id;
@@ -473,7 +473,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
             FullName = entity.FullName,
             Label = entity.Name,
             Kind = NodeKind.Method,
-            Metadata = new Dictionary<string, string>(entity.Metadata)
+            Metadata = new Dictionary<string, string>(entity.Metadata) { ["FilePath"] = _filePath }
         });
 
         if (symbol.ContainingType != null)
@@ -512,7 +512,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
             FullName = entity.FullName,
             Label = entity.Name,
             Kind = NodeKind.Property,
-            Metadata = new Dictionary<string, string>(entity.Metadata)
+            Metadata = new Dictionary<string, string>(entity.Metadata) { ["FilePath"] = _filePath }
         });
 
         if (symbol.ContainingType != null)
@@ -536,7 +536,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
             FullName = entity.FullName,
             Label = entity.Name,
             Kind = NodeKind.Field,
-            Metadata = new Dictionary<string, string>(entity.Metadata)
+            Metadata = new Dictionary<string, string>(entity.Metadata) { ["FilePath"] = _filePath }
         });
 
         if (symbol.ContainingType != null)

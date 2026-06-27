@@ -8,22 +8,28 @@ namespace NexusCode.Api.Controllers;
 [Route("api/[controller]")]
 public class MultiRepoController : ControllerBase
 {
-    private static readonly MultiRepoManager _manager = new();
-    private static readonly CrossRepoSearchEngine _crossRepoSearch = new(_manager);
-    private static readonly RepoComparator _comparator = new(_manager);
-    private static readonly RepoHealthAnalyzer _healthAnalyzer = new(_manager);
+    private readonly MultiRepoManagerService _multiRepoService;
+    private readonly NexusIndexService _indexService;
+
+    public MultiRepoController(MultiRepoManagerService multiRepoService, NexusIndexService indexService)
+    {
+        _multiRepoService = multiRepoService;
+        _indexService = indexService;
+    }
+
+    private MultiRepoManager Manager => _multiRepoService.Manager;
 
     [HttpPost("index")]
     public async Task<IActionResult> IndexRepositories([FromBody] IndexMultipleRequest request, CancellationToken ct)
     {
-        var results = await _manager.IndexMultipleAsync(request.Paths, ct);
+        var results = await Manager.IndexMultipleAsync(request.Paths, ct);
         return Ok(results);
     }
 
     [HttpGet("list")]
     public IActionResult ListRepositories()
     {
-        var repos = _manager.GetAllRepositories();
+        var repos = Manager.GetAllRepositories();
         return Ok(repos.Select(r => new
         {
             r.Name,
@@ -39,7 +45,8 @@ public class MultiRepoController : ControllerBase
     [HttpGet("search")]
     public IActionResult Search([FromQuery] string query, [FromQuery] int maxResults = 20)
     {
-        var results = _crossRepoSearch.Search(query, maxResults);
+        var crossRepoSearch = new CrossRepoSearchEngine(Manager);
+        var results = crossRepoSearch.Search(query, maxResults);
         return Ok(results.Select(r => new
         {
             r.Symbol.Name,
@@ -54,7 +61,8 @@ public class MultiRepoController : ControllerBase
     [HttpGet("callers/{symbolName}")]
     public IActionResult FindCallers(string symbolName, [FromQuery] int maxDepth = 1)
     {
-        var results = _crossRepoSearch.FindCallers(symbolName, maxDepth);
+        var crossRepoSearch = new CrossRepoSearchEngine(Manager);
+        var results = crossRepoSearch.FindCallers(symbolName, maxDepth);
         return Ok(results.Select(r => new
         {
             r.Symbol.Name,
@@ -68,7 +76,8 @@ public class MultiRepoController : ControllerBase
     [HttpGet("callees/{symbolName}")]
     public IActionResult FindCallees(string symbolName, [FromQuery] int maxDepth = 1)
     {
-        var results = _crossRepoSearch.FindCallees(symbolName, maxDepth);
+        var crossRepoSearch = new CrossRepoSearchEngine(Manager);
+        var results = crossRepoSearch.FindCallees(symbolName, maxDepth);
         return Ok(results.Select(r => new
         {
             r.Symbol.Name,
@@ -82,7 +91,8 @@ public class MultiRepoController : ControllerBase
     [HttpGet("compare")]
     public IActionResult Compare([FromQuery] string repo1, [FromQuery] string repo2)
     {
-        var result = _comparator.Compare(repo1, repo2);
+        var comparator = new RepoComparator(Manager);
+        var result = comparator.Compare(repo1, repo2);
         if (result.Error != null)
             return BadRequest(new { error = result.Error });
 
@@ -92,7 +102,8 @@ public class MultiRepoController : ControllerBase
     [HttpGet("health/{repoName}")]
     public IActionResult GetHealth(string repoName)
     {
-        var report = _healthAnalyzer.Analyze(repoName);
+        var healthAnalyzer = new RepoHealthAnalyzer(Manager);
+        var report = healthAnalyzer.Analyze(repoName);
         if (report.Error != null)
             return NotFound(new { error = report.Error });
 
@@ -102,7 +113,8 @@ public class MultiRepoController : ControllerBase
     [HttpDelete("{repoName}")]
     public IActionResult RemoveRepository(string repoName)
     {
-        _manager.RemoveRepository(repoName);
+        Manager.RemoveRepository(repoName);
+        _indexService.RemoveSavedPath(repoName);
         return Ok(new { message = $"Repository '{repoName}' removed" });
     }
 }
