@@ -104,6 +104,7 @@ public class ReferenceEntity
     public Guid SymbolId { get; set; }
     public Guid SourceFileId { get; set; }
     public Guid? SourceSymbolId { get; set; }
+    public string? FilePath { get; set; }
     public int Line { get; set; }
     public int Column { get; set; }
     public ReferenceKind Kind { get; set; }

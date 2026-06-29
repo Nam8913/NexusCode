@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.IO;
 using NexusCode.Domain;
 
 namespace NexusCode.Roslyn;
@@ -73,6 +74,58 @@ public sealed class SymbolSearchEngine
     public IReadOnlyList<ReferenceEntity> FindReferences(Guid symbolId, bool excludeDefinition = true)
     {
         return _symbolTable.GetReferences(symbolId);
+    }
+
+    public List<SourceCodeMatch> SearchSourceText(string query, int maxResults = 20)
+    {
+        var matches = new List<SourceCodeMatch>();
+        if (string.IsNullOrWhiteSpace(query)) return matches;
+
+        var filesByPath = new Dictionary<string, string[]>();
+        foreach (var symbol in _symbolTable.GetByKind(SymbolKind.Type))
+        {
+            if (!string.IsNullOrEmpty(symbol.FilePath) && !filesByPath.ContainsKey(symbol.FilePath))
+            {
+                try
+                {
+                    if (File.Exists(symbol.FilePath))
+                        filesByPath[symbol.FilePath] = File.ReadAllLines(symbol.FilePath);
+                }
+                catch { }
+            }
+        }
+
+        foreach (var symbol in _symbolTable.GetByKind(SymbolKind.Method))
+        {
+            if (!string.IsNullOrEmpty(symbol.FilePath) && !filesByPath.ContainsKey(symbol.FilePath))
+            {
+                try
+                {
+                    if (File.Exists(symbol.FilePath))
+                        filesByPath[symbol.FilePath] = File.ReadAllLines(symbol.FilePath);
+                }
+                catch { }
+            }
+        }
+
+        foreach (var (filePath, lines) in filesByPath)
+        {
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Contains(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    matches.Add(new SourceCodeMatch
+                    {
+                        FilePath = filePath,
+                        Line = i + 1,
+                        Content = lines[i].Trim(),
+                        Score = lines[i].IndexOf(query, StringComparison.OrdinalIgnoreCase) == 0 ? 1.0 : 0.8
+                    });
+                }
+            }
+        }
+
+        return matches.OrderByDescending(m => m.Score).Take(maxResults).ToList();
     }
 
     public IReadOnlyList<CallerInfo> FindCallers(Guid methodId, int maxDepth = 1)
@@ -354,4 +407,12 @@ public class CalleeInfo
 {
     public SymbolEntity Symbol { get; set; } = new();
     public int Depth { get; set; }
+}
+
+public class SourceCodeMatch
+{
+    public string FilePath { get; set; } = string.Empty;
+    public int Line { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public double Score { get; set; }
 }

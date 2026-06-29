@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexusCode — Developer Guide</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:15px/1.7 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;background:#0d1117;max-width:900px;margin:0 auto;padding:20px}
+h1{font-size:1.6em;border-bottom:1px solid #30363d;padding-bottom:8px;margin:24px 0 12px}
+h2{font-size:1.2em;color:#58a6ff;margin:20px 0 8px}
+h3{font-size:1.05em;color:#79c0ff;margin:14px 0 6px}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:'Fira Code',Consolas,monospace;font-size:.9em;background:#161b22;padding:1px 5px;border-radius:3px}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px;overflow-x:auto;font-size:.85em;line-height:1.5;margin:8px 0}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.9em}
+th,td{padding:6px 10px;text-align:left;border:1px solid #30363d}
+th{background:#161b22;color:#79c0ff;font-weight:600}
+tr:nth-child(even){background:#161b22}
+blockquote{border-left:3px solid #58a6ff;padding:8px 12px;margin:8px 0;background:#161b22;border-radius:0 4px 4px 0;color:#8b949e}
+ul,ol{padding-left:20px;margin:6px 0}
+li{margin:3px 0}
+hr{border:none;border-top:1px solid #30363d;margin:16px 0}
+.lang-toggle{position:fixed;top:12px;right:16px;z-index:100;display:flex;gap:4px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:3px}
+.lang-btn{padding:5px 14px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;background:transparent;color:#8b949e;transition:all .2s}
+.lang-btn.active{background:#58a6ff;color:#0d1117}
+.lang-btn:hover:not(.active){color:#e6edf3}
+[data-lang="vi"]{display:none}
+body.vi [data-lang="en"]{display:none}
+body.vi [data-lang="vi"]{display:block}
+body.vi span[data-lang="vi"],body.vi td[data-lang="vi"],body.vi th[data-lang="vi"]{display:inline}
+body.vi span[data-lang="en"],body.vi td[data-lang="en"],body.vi th[data-lang="en"]{display:none}
+span[data-lang]{display:inline}
+span[data-lang="vi"]{display:none}
+td[data-lang],th[data-lang]{display:contents}
+body.vi td:not([data-lang]),body.vi th:not([data-lang]){display:contents}
+@media(max-width:600px){body{padding:10px}pre{font-size:.8em}table{font-size:.8em}}
+</style>
+</head>
+<body>
+
+<div class="lang-toggle">
+<button class="lang-btn active" onclick="setLang('en')">EN</button>
+<button class="lang-btn" onclick="setLang('vi')">VI</button>
+</div>
+
+<h1>NexusCode — Developer Guide</h1>
+<blockquote data-lang="en">A Roslyn-based Code Intelligence Platform for C# and Unity projects. Provides Knowledge Graph, Symbol Search, MCP integration for AI agents, and Graph RAG.</blockquote>
+<blockquote data-lang="vi">Nền tảng Trí tuệ Code dựa trên Roslyn cho dự án C# và Unity. Cung cấp Knowledge Graph, Tìm kiếm Symbol, tích hợp MCP cho AI agent, và Graph RAG.</blockquote>
+
+<h2>1. Project Overview</h2>
+<h3 data-lang="en">Purpose</h3>
+<h3 data-lang="vi">Mục đích</h3>
+<p data-lang="en">Give AI agents and developers deep, semantic understanding of C# and Unity codebases — beyond text search, into symbol relationships, inheritance hierarchies, call graphs, and dependency chains.</p>
+<p data-lang="vi">Cung cấp cho AI agent và developer khả năng hiểu sâu, ngữ nghĩa codebase C# và Unity — vượt qua tìm kiếm text, vào mối quan hệ symbol, thứ tự kế thừa, đồ thị gọi, và chuỗi phụ thuộc.</p>
+
+<h3 data-lang="en">Target Users</h3>
+<h3 data-lang="vi">Người dùng mục tiêu</h3>
+<ul>
+<li data-lang="en">AI coding assistants connecting via MCP protocol</li>
+<li data-lang="vi">Trợ lý AI lập trình kết nối qua giao thức MCP</li>
+<li data-lang="en">Developers using the REST API or NexusGraph web UI</li>
+<li data-lang="vi">Developer sử dụng REST API hoặc NexusGraph web UI</li>
+<li data-lang="en">Unity teams needing project structure analysis</li>
+<li data-lang="vi">Nhóm Unity cần phân tích cấu trúc dự án</li>
+</ul>
+
+<h3 data-lang="en">Main Features</h3>
+<h3 data-lang="vi">Tính năng chính</h3>
+<ul>
+<li>Roslyn-based semantic code analysis (not regex)</li>
+<li>Knowledge graph: 22 node kinds, 24 edge kinds</li>
+<li>12 MCP tools for AI agent integration</li>
+<li>Fuzzy symbol search with trigram indexing</li>
+<li>Graph RAG via Ollama</li>
+<li>Unity analysis (MonoBehaviour, Prefabs, Scenes, Addressables)</li>
+<li>Multi-repository search and comparison</li>
+<li>Blast radius / impact analysis with risk scoring</li>
+</ul>
+
+<hr>
+
+<h2>2. High-Level Architecture</h2>
+<pre><code>Clients
+  AI Agent (MCP) ── JSON-RPC ──┐
+  REST Client    ── HTTP ───────┤
+  NexusGraph UI  ── HTTP ───────┘
+                                  │
+Application Layer
+  MCP Server (12 tools) ──────────┤
+  REST API (5 controllers) ───────┤
+  NexusIndexService (singleton) ──┤
+                                  │
+Core Engine (NexusCode.Roslyn)
+  SymbolSearchEngine ─────────────┤
+  KnowledgeGraph ─────────────────┤
+  SymbolTable (7 indexes) ────────┤
+  CodeIndexer Pipeline ───────────┘
+                                  │
+Persistence Layer
+  SQLite (symbols, graph)
+  InMemoryVectorStore / Qdrant
+  Ollama (embeddings)</code></pre>
+
+<hr>
+
+<h2>3. Folder Structure</h2>
+<pre><code>NexusCode/
+├── src/
+│   ├── NexusCode.Domain/       Entities, enums, interfaces
+│   ├── NexusCode.Roslyn/       Core engine, graph, search, Unity
+│   ├── NexusCode.Indexer/      CodeIndexer + CLI
+│   ├── NexusCode.Mcp/          MCP server (JSON-RPC)
+│   ├── NexusCode.Api/          REST API (ASP.NET Core)
+│   ├── NexusCode.Database/     SQLite persistence
+│   ├── NexusCode.Embedding/    Ollama embeddings + cache
+│   ├── NexusCode.VectorStore/  Vector storage
+│   ├── NexusCode.Context/      Graph RAG builder
+│   └── NexusCode.Tests/        64 unit + integration tests
+├── NexusGraph/                 React + Sigma.js frontend
+├── docs/                       Architecture, ADRs, guides
+└── publish/                    Pre-built binaries</code></pre>
+
+<table>
+<tr><th>Layer</th><th>Project</th><th data-lang="en">Responsibility</th><th data-lang="vi">Trách nhiệm</th></tr>
+<tr><td>Domain</td><td>NexusCode.Domain</td><td>Entities, enums, interfaces, ColorConfig</td></tr>
+<tr><td>Engine</td><td>NexusCode.Roslyn</td><td>Roslyn parsing, graph, search, Unity analyzers</td></tr>
+<tr><td>Indexing</td><td>NexusCode.Indexer</td><td>File scanning, compilation, parallel analysis</td></tr>
+<tr><td>Integration</td><td>NexusCode.Mcp</td><td>MCP JSON-RPC (12 tools)</td></tr>
+<tr><td>API</td><td>NexusCode.Api</td><td>REST endpoints, Swagger</td></tr>
+<tr><td>Storage</td><td>NexusCode.Database</td><td>SQLite CRUD</td></tr>
+<tr><td>AI</td><td>NexusCode.Embedding</td><td>Ollama embeddings, batch queue</td></tr>
+<tr><td>Vectors</td><td>NexusCode.VectorStore</td><td>Cosine similarity / Qdrant</td></tr>
+<tr><td>Tests</td><td>NexusCode.Tests</td><td>64 tests (50 unit + 14 integration)</td></tr>
+</table>
+
+<hr>
+
+<h2>4. Request Lifecycle</h2>
+<h3 data-lang="en">MCP Tool Request</h3>
+<h3 data-lang="vi">Yêu cầu MCP Tool</h3>
+<pre><code>AI Agent → JSON-RPC stdin → MCP Server
+  → ResolveSymbolByName (fuzzy resolution)
+  → Handler (FindReferences, FindCallers, ...)
+  → SymbolSearchEngine → SymbolTable + KnowledgeGraph
+  → JSON-RPC stdout → AI Agent</code></pre>
+
+<h3 data-lang="en">REST API Request</h3>
+<h3 data-lang="vi">Yêu cầu REST API</h3>
+<pre><code>Client → HTTP → Controller → NexusIndexService
+  → SymbolSearchEngine / SymbolTable
+  → JSON response → Client</code></pre>
+
+<hr>
+
+<h2>5. Startup Lifecycle</h2>
+<h3>MCP Server</h3>
+<ol>
+<li data-lang="en">Create empty SymbolTable + KnowledgeGraph</li>
+<li data-lang="vi">Tạo SymbolTable + KnowledgeGraph rỗng</li>
+<li data-lang="en">Create SymbolSearchEngine (builds trigram index)</li>
+<li data-lang="vi">Tạo SymbolSearchEngine (xây chỉ mục trigram)</li>
+<li data-lang="en">Enter stdin JSON-RPC loop</li>
+<li data-lang="vi">Vòng lặp stdin JSON-RPC</li>
+<li data-lang="en">On index_repository: CodeIndexer.IndexAsync → merge into live tables</li>
+<li data-lang="vi">Khi index_repository: CodeIndexer.IndexAsync → hợp nhất vào bảng sống</li>
+</ol>
+
+<h3>REST API</h3>
+<ol>
+<li data-lang="en">Register singletons (IndexingService, PersistenceService, NexusIndexService)</li>
+<li data-lang="vi">Đăng ký singleton (IndexingService, PersistenceService, NexusIndexService)</li>
+<li data-lang="en">NexusIndexService restores from SQLite if data exists</li>
+<li data-lang="vi">NexusIndexService khôi phục từ SQLite nếu có dữ liệu</li>
+<li>Enable Swagger + CORS + health endpoint</li>
+</ol>
+
+<hr>
+
+<h2>6. Core Modules</h2>
+
+<h3>SymbolTable</h3>
+<p data-lang="en">In-memory store with 7 concurrent dictionary indexes for multi-key lookup.</p>
+<p data-lang="vi">Bộ nhớ trong với 7 chỉ mục từ điển đồng thời để tra cứu đa khóa.</p>
+<table>
+<tr><th>Index</th><th data-lang="en">Lookup</th><th data-lang="vi">Tra cứu</th></tr>
+<tr><td>_symbolsById</td><td>By GUID</td></tr>
+<tr><td>_symbolsByFullName</td><td>global::GameService</td></tr>
+<tr><td>_symbolsByName</td><td>GameService</td></tr>
+<tr><td>_symbolsByKind</td><td>Type, Method, Property...</td></tr>
+<tr><td>_symbolsByFile</td><td>By file path</td></tr>
+<tr><td>_symbolsByContainer</td><td>Members of a type</td></tr>
+<tr><td>_references</td><td>References by symbol</td></tr>
+</table>
+<p><code>ResolveSymbol(name)</code>: exact full name → global:: prefix → name → case-insensitive → prefix → contains. Prefers Type > Method.</p>
+
+<h3>KnowledgeGraph</h3>
+<p data-lang="en">Directed graph with bidirectional adjacency lists. Node IDs: SHA256. Edge IDs: MD5(source+target+kind). 22 node kinds, 24 edge kinds.</p>
+<p data-lang="vi">Đồ thị có hướng với danh sách kề hai chiều. ID nút: SHA256. ID cạnh: MD5(source+target+kind). 22 loại nút, 24 loại cạnh.</p>
+
+<h3>SyntaxWalker</h3>
+<p data-lang="en">Roslyn AST visitor. Extracts: Symbols, References, GraphNodes, GraphEdges. Overrides VisitClassDeclaration, VisitMethodDeclaration, VisitInvocationExpression, etc.</p>
+<p data-lang="vi">Visitor AST Roslyn. Trích xuất: Symbols, References, GraphNodes, GraphEdges. Override VisitClassDeclaration, VisitMethodDeclaration, VisitInvocationExpression, v.v.</p>
+
+<h3>SymbolSearchEngine</h3>
+<p data-lang="en">Multi-tier search: Exact(1.0) → Name(0.9) → Prefix(0.7) → Trigram fuzzy(0.4). Graph traversal: FindCallers, FindCallees, FindDerivedTypes, FindImplementations.</p>
+<p data-lang="vi">Tìm kiếm đa tầng: Exact(1.0) → Name(0.9) → Prefix(0.7) → Trigram fuzzy(0.4). Duyệt đồ thị: FindCallers, FindCallees, FindDerivedTypes, FindImplementations.</p>
+
+<h3>CodeIndexer</h3>
+<pre><code>FileScanner → RoslynEngine → Parallel.ForEachAsync → SyntaxWalker → SymbolTable + KnowledgeGraph</code></pre>
+
+<h3 data-lang="en">Unity Analyzers (6)</h3>
+<h3 data-lang="vi">Unity Analyzers (6)</h3>
+<ul>
+<li><code>UnityAnalyzer</code> — MonoBehaviour, serialized fields, lifecycle</li>
+<li><code>UnityEventAnalyzer</code> — UnityEvent connections</li>
+<li><code>UnityPrefabAnalyzer</code> — .prefab YAML parsing</li>
+<li><code>UnitySceneAnalyzer</code> — .unity scene parsing</li>
+<li><code>UnityAddressablesAnalyzer</code> — Addressable assets</li>
+<li><code>UnityIntelligenceEngine</code> — Orchestrator</li>
+</ul>
+
+<hr>
+
+<h2>7. Business Flow</h2>
+<h3 data-lang="en">Index a Repository</h3>
+<h3 data-lang="vi">Index một Repository</h3>
+<pre><code>User → index_repository(path)
+  → FileScanner.ScanAsync(path) → list of .cs files
+  → RoslynEngine.LoadProject() → Compilations
+  → Parallel: SyntaxWalker.AnalyzeFile() per file
+  → Merge into SymbolTable + KnowledgeGraph
+  → Return: "N files, M symbols, K edges"</code></pre>
+
+<h3 data-lang="en">Find References</h3>
+<h3 data-lang="vi">Tìm kiếm References</h3>
+<pre><code>Agent → find_references("PlayerController")
+  → ResolveSymbolByName() → SymbolEntity
+  → SymbolTable.GetReferences(id) → List of ReferenceEntity
+  → "12 refs: Line 429 in PlayerController.cs..."</code></pre>
+
+<h3 data-lang="en">Blast Radius</h3>
+<h3 data-lang="vi">Bán kính vụ nổ (tác động)</h3>
+<pre><code>Agent → blast_radius("X", depth=2)
+  → FindCallers + FindCallees (recursive BFS)
+  → FindDerivedTypes + FindImplementations
+  → RiskScore = min(callers×5,50) + min(callees×2,20) + min(refs×1,15) + min(derived×10,15) + min(impls×5,10)
+  → "Risk: 12/100 (MINIMAL)"</code></pre>
+
+<hr>
+
+<h2>8. Database</h2>
+<h3>nexus.db (SQLite)</h3>
+<table>
+<tr><th>Table</th><th data-lang="en">Purpose</th><th data-lang="vi">Mục đích</th></tr>
+<tr><td><code>symbols</code></td><td>Persisted symbols</td></tr>
+<tr><td><code>graph_nodes</code></td><td>Persisted graph nodes (BLOB id)</td></tr>
+<tr><td><code>graph_edges</code></td><td>Persisted graph edges (BLOB id)</td></tr>
+<tr><td><code>chunks</code></td><td>RAG text chunks</td></tr>
+</table>
+
+<h3>nexus_embeddings.db</h3>
+<table>
+<tr><th>Table</th><th data-lang="en">Purpose</th><th data-lang="vi">Mục đích</th></tr>
+<tr><td><code>embedding_meta</code></td><td>Change detection (content hash)</td></tr>
+<tr><td><code>embeddings</code></td><td>Cached embeddings</td></tr>
+</table>
+
+<hr>
+
+<h2>9. Authentication</h2>
+<p data-lang="en"><strong>None.</strong> Local-first tool for developer machines. CORS allows all origins.</p>
+<p data-lang="vi"><strong>Không có.</strong> Công cụ local-first cho máy developer. CORS cho phép tất cả origin.</p>
+
+<hr>
+
+<h2>10. API Design</h2>
+<h3>REST Endpoints</h3>
+<table>
+<tr><th>Method</th><th>Route</th><th data-lang="en">Description</th><th data-lang="vi">Mô tả</th></tr>
+<tr><td>POST</td><td>/api/index/repository</td><td>Index repository</td></tr>
+<tr><td>GET</td><td>/api/index/status</td><td>Indexing status</td></tr>
+<tr><td>GET</td><td>/api/search/symbol?query=</td><td>Search symbols</td></tr>
+<tr><td>GET</td><td>/api/search/callers/{name}</td><td>Find callers</td></tr>
+<tr><td>GET</td><td>/api/search/callees/{name}</td><td>Find callees</td></tr>
+<tr><td>GET</td><td>/api/search/derived/{name}</td><td>Find derived types</td></tr>
+<tr><td>GET</td><td>/api/graph/stats</td><td>Graph stats</td></tr>
+<tr><td>GET</td><td>/api/graph/export</td><td>Graph export</td></tr>
+<tr><td>POST</td><td>/api/multirepo/index</td><td>Multi-repo index</td></tr>
+<tr><td>POST</td><td>/api/rag/ask</td><td>Graph RAG query</td></tr>
+</table>
+
+<h3>MCP Tools (12)</h3>
+<table>
+<tr><th>Tool</th><th data-lang="en">Description</th><th data-lang="vi">Mô tả</th></tr>
+<tr><td><code>list_symbols</code></td><td>List symbols by kind + name</td></tr>
+<tr><td><code>find_symbol</code></td><td>Find symbol by name</td></tr>
+<tr><td><code>find_references</code></td><td>All references to a symbol</td></tr>
+<tr><td><code>find_callers</code></td><td>Methods calling a given method</td></tr>
+<tr><td><code>find_callees</code></td><td>Methods called by a given method</td></tr>
+<tr><td><code>find_implementations</code></td><td>Interface implementations</td></tr>
+<tr><td><code>find_derived_types</code></td><td>Inheritance hierarchy</td></tr>
+<tr><td><code>search_code</code></td><td>Symbol + source text search</td></tr>
+<tr><td><code>get_symbol_info</code></td><td>Detailed symbol metadata</td></tr>
+<tr><td><code>explain_architecture</code></td><td>Codebase statistics</td></tr>
+<tr><td><code>index_repository</code></td><td>Index a repo at runtime</td></tr>
+<tr><td><code>blast_radius</code></td><td>Impact analysis + risk score</td></tr>
+</table>
+
+<hr>
+
+<h2>11. Configuration</h2>
+<table>
+<tr><th>Setting</th><th>Location</th><th>Default</th></tr>
+<tr><td>SQLite DB</td><td><code>SqliteRepository.cs</code></td><td><code>{BaseDir}/.nexus/nexus.db</code></td></tr>
+<tr><td>Embedding DB</td><td><code>IncrementalEmbeddingEngine.cs</code></td><td><code>nexus_embeddings.db</code></td></tr>
+<tr><td>Repos config</td><td><code>PersistenceService.cs</code></td><td><code>{BaseDir}/.nexus/indexed_repos.json</code></td></tr>
+<tr><td>Ollama</td><td><code>OllamaClient.cs</code></td><td><code>http://localhost:11434</code></td></tr>
+<tr><td>Qdrant</td><td><code>QdrantAdapter.cs</code></td><td><code>http://localhost:6333</code></td></tr>
+</table>
+
+<hr>
+
+<h2>12. Dependency Graph</h2>
+<pre><code>Domain (root)
+├── Roslyn ──┬── Indexer ──── Mcp (exe)
+│            ├── Database ─── Api (web)
+│            └── Context
+├── Embedding
+└── VectorStore</code></pre>
+
+<hr>
+
+<h2>13. Testing</h2>
+<table>
+<tr><th data-lang="en">File</th><th data-lang="vi">File</th><th>Tests</th><th data-lang="en">What</th><th data-lang="vi">Nội dung</th></tr>
+<tr><td>SymbolTableTests.cs</td><td>9</td><td>CRUD, indexing</td></tr>
+<tr><td>SymbolTableResolveTests.cs</td><td>12</td><td>Fuzzy resolution, FilePath</td></tr>
+<tr><td>SearchSourceTextTests.cs</td><td>11</td><td>Source text search</td></tr>
+<tr><td>KnowledgeGraphTests.cs</td><td>6</td><td>Graph ops, cascading delete</td></tr>
+<tr><td>InMemoryVectorStoreTests.cs</td><td>6</td><td>Vector CRUD, cosine sim</td></tr>
+<tr><td>MultiRepoTests.cs</td><td>5</td><td>Cross-repo search</td></tr>
+<tr><td>IndexerIntegrationTests.cs</td><td>5</td><td>Full indexing pipeline</td></tr>
+<tr><td>SearchIntegrationTests.cs</td><td>4</td><td>Cross-repo E2E</td></tr>
+<tr><td>ApiIntegrationTests.cs</td><td>7</td><td>Metrics, LRU cache</td></tr>
+<tr><th></th><th>Total</th><th>64</th><th></th></tr>
+</table>
+<pre><code>dotnet test                          # All 64 tests
+dotnet test --filter "SymbolTable"   # By class
+dotnet test --filter "ResolveSymbol" # By name</code></pre>
+
+<hr>
+
+<h2>14. Extension Guide</h2>
+<h3 data-lang="en">Add a New MCP Tool</h3>
+<h3 data-lang="vi">Thêm MCP Tool mới</h3>
+<ol>
+<li>Add tool in <code>tools/list</code> response in Program.cs</li>
+<li data-lang="en">Add handler: <code>string HandleNewTool(JsonElement? args)</code></li>
+<li data-lang="vi">Thêm handler: <code>string HandleNewTool(JsonElement? args)</code></li>
+<li>Add routing in <code>tools/call</code> switch</li>
+<li data-lang="en">Publish: <code>dotnet publish -c Release -o publish/</code></li>
+<li data-lang="vi">Publish: <code>dotnet publish -c Release -o publish/</code></li>
+</ol>
+
+<h3 data-lang="en">Add a New Graph Edge Kind</h3>
+<h3 data-lang="vi">Thêm loại cạnh Graph mới</h3>
+<ol>
+<li>Add to <code>EdgeKind</code> enum in <code>Enums.cs</code></li>
+<li>Add creation logic in <code>SyntaxWalker</code></li>
+<li>Add color in <code>ColorConfig.cs</code></li>
+</ol>
+
+<hr>
+
+<h2>15. Common Pitfalls</h2>
+<table>
+<tr><th data-lang="en">Pitfall</th><th data-lang="vi">Cạm bẫy</th><th data-lang="en">Explanation</th><th data-lang="vi">Giải thích</th></tr>
+<tr><td data-lang="en">MCP is stateless</td><td data-lang="vi">MCP không có trạng thái</td><td data-lang="en">Must call index_repository before querying</td><td data-lang="vi">Phải gọi index_repository trước khi truy vấn</td></tr>
+<tr><td data-lang="en">build ≠ publish</td><td data-lang="vi">build ≠ publish</td><td data-lang="en">bin/ ≠ publish/. Must run dotnet publish</td><td data-lang="vi">bin/ ≠ publish/. Phải chạy dotnet publish</td></tr>
+<tr><td data-lang="en">Can't publish while running</td><td data-lang="vi">Không publish được khi đang chạy</td><td data-lang="en">Kill MCP process first</td><td data-lang="vi">Phải tắt tiến trình MCP trước</td></tr>
+<tr><td data-lang="en">Short names ambiguous</td><td data-lang="vi">Tên ngắn mập mờ</td><td data-lang="en">Use global:: prefix for precision</td><td data-lang="vi">Dùng tiền tố global:: để chính xác</td></tr>
+<tr><td data-lang="en">FindCallers on Type = 0</td><td data-lang="vi">FindCallers trên Type = 0</td><td data-lang="en">Correct — calls are method-to-method</td><td data-lang="vi">Đúng — calls là method đến method</td></tr>
+</table>
+
+<hr>
+
+<h2>16. Glossary</h2>
+<table>
+<tr><th>Term</th><th data-lang="en">Definition</th><th data-lang="vi">Định nghĩa</th></tr>
+<tr><td>MCP</td><td data-lang="en">Model Context Protocol — JSON-RPC 2.0 over stdio</td><td data-lang="vi">Giao thức Model Context Protocol — JSON-RPC 2.0 qua stdio</td></tr>
+<tr><td>SymbolTable</td><td data-lang="en">In-memory store with 7 concurrent indexes</td><td data-lang="vi">Bộ nhớ trong với 7 chỉ mục đồng thời</td></tr>
+<tr><td>KnowledgeGraph</td><td data-lang="en">Directed graph of code relationships</td><td data-lang="vi">Đồ thị có hướng của mối quan hệ code</td></tr>
+<tr><td>SyntaxWalker</td><td data-lang="en">Roslyn AST visitor for symbol extraction</td><td data-lang="vi">Visitor AST Roslyn để trích xuất symbol</td></tr>
+<tr><td>Blast Radius</td><td data-lang="en">Impact analysis when a symbol changes</td><td data-lang="vi">Phân tích tác động khi symbol thay đổi</td></tr>
+<tr><td>Graph RAG</td><td data-lang="en">Knowledge graph + vector search for RAG</td><td data-lang="vi">Knowledge graph + tìm kiếm vector cho RAG</td></tr>
+<tr><td>Trigram Index</td><td data-lang="en">3-char substring index for fuzzy matching</td><td data-lang="vi">Chỉ mục con 3 ký tự để匹配 mờ</td></tr>
+<tr><td>Deterministic GUID</td><td data-lang="en">MD5-based consistent GUID from symbol name</td><td data-lang="vi">GUID nhất quán dựa trên MD5 từ tên symbol</td></tr>
+<tr><td>Risk Score</td><td data-lang="en">0-100 impact score (callers, callees, refs, derived)</td><td data-lang="vi">Điểm tác động 0-100 (callers, callees, refs, derived)</td></tr>
+</table>
+
+<script>
+function setLang(lang){
+  document.body.classList.toggle('vi',lang==='vi');
+  document.querySelectorAll('.lang-btn').forEach(b=>{
+    b.classList.toggle('active',b.textContent.trim()===lang.toUpperCase());
+  });
+  localStorage.setItem('nexus-lang',lang);
+}
+(function(){
+  var s=localStorage.getItem('nexus-lang');
+  if(s==='vi')setLang('vi');
+})();
+</script>
+
+</body>
+</html>

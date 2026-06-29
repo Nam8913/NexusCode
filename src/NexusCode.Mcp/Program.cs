@@ -112,6 +112,51 @@ while (true)
     }
 }
 
+// Symbol resolution: try exact full name, then name-only, then fuzzy
+SymbolEntity? ResolveSymbolByName(string name)
+{
+    var candidates = new List<SymbolEntity>();
+
+    var byFull = symbolTable.GetByFullName(name);
+    if (byFull != null) candidates.Add(byFull);
+
+    if (!name.StartsWith("global::"))
+    {
+        var prefixed = symbolTable.GetByFullName("global::" + name);
+        if (prefixed != null && !candidates.Any(c => c.Id == prefixed.Id))
+            candidates.Add(prefixed);
+    }
+
+    var byName = symbolTable.GetByName(name);
+    foreach (var s in byName)
+    {
+        if (!candidates.Any(c => c.Id == s.Id))
+            candidates.Add(s);
+    }
+
+    if (candidates.Count == 0)
+    {
+        var allTypes = symbolTable.GetByKind(SymbolKind.Type);
+        foreach (var s in allTypes)
+        {
+            if (s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                candidates.Add(s);
+                break;
+            }
+        }
+    }
+
+    if (candidates.Count == 0) return null;
+    if (candidates.Count == 1) return candidates[0];
+
+    return candidates
+        .OrderByDescending(c => c.Kind == SymbolKind.Type)
+        .ThenByDescending(c => c.Kind == SymbolKind.Method)
+        .ThenByDescending(c => c.FullName.StartsWith("global::"))
+        .First();
+}
+
 // Tool handlers
 string HandleFindSymbol(JsonElement? args)
 {
@@ -125,71 +170,83 @@ string HandleFindSymbol(JsonElement? args)
 string HandleFindReferences(JsonElement? args)
 {
     var name = args?.TryGetProperty("symbolName", out var n) == true ? n.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Symbol not found: {name}";
     var refs = symbolTable.GetReferences(symbol.Id);
-    if (refs.Count == 0) return $"No references to {name}";
-    var list = refs.Take(20).Select(r => $"- Line {r.Line} in {r.SourceFileId}");
-    return $"Found {refs.Count} references to {name}:\n{string.Join("\n", list)}";
+    if (refs.Count == 0) return $"No references to {symbol.FullName}";
+    var list = refs.Take(20).Select(r => $"- Line {r.Line} in {r.FilePath ?? "unknown"}");
+    return $"Found {refs.Count} references to {symbol.FullName}:\n{string.Join("\n", list)}";
 }
 
 string HandleFindCallers(JsonElement? args)
 {
     var name = args?.TryGetProperty("method", out var m) == true ? m.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Symbol not found: {name}";
     var callers = searchEngine.FindCallers(symbol.Id, 1);
-    if (callers.Count == 0) return $"No callers found for {name}";
+    if (callers.Count == 0) return $"No callers found for {symbol.FullName}";
     var list = callers.Take(20).Select(c => $"- {c.Symbol.FullName}");
-    return $"Found {callers.Count} callers of {name}:\n{string.Join("\n", list)}";
+    return $"Found {callers.Count} callers of {symbol.FullName}:\n{string.Join("\n", list)}";
 }
 
 string HandleFindCallees(JsonElement? args)
 {
     var name = args?.TryGetProperty("method", out var m) == true ? m.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Symbol not found: {name}";
     var callees = searchEngine.FindCallees(symbol.Id, 1);
-    if (callees.Count == 0) return $"No callees found for {name}";
+    if (callees.Count == 0) return $"No callees found for {symbol.FullName}";
     var list = callees.Take(20).Select(c => $"- {c.Symbol.FullName}");
-    return $"Found {callees.Count} callees of {name}:\n{string.Join("\n", list)}";
+    return $"Found {callees.Count} callees of {symbol.FullName}:\n{string.Join("\n", list)}";
 }
 
 string HandleFindImplementations(JsonElement? args)
 {
     var name = args?.TryGetProperty("interfaceName", out var i) == true ? i.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Interface not found: {name}";
     var impls = searchEngine.FindImplementations(symbol.Id);
-    if (impls.Count == 0) return $"No implementations found for {name}";
+    if (impls.Count == 0) return $"No implementations found for {symbol.FullName}";
     var list = impls.Take(20).Select(s => $"- {s.FullName}");
-    return $"Found {impls.Count} implementations of {name}:\n{string.Join("\n", list)}";
+    return $"Found {impls.Count} implementations of {symbol.FullName}:\n{string.Join("\n", list)}";
 }
 
 string HandleFindDerivedTypes(JsonElement? args)
 {
     var name = args?.TryGetProperty("typeName", out var t) == true ? t.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Type not found: {name}";
     var derived = searchEngine.FindDerivedTypes(symbol.Id);
-    if (derived.Count == 0) return $"No derived types found for {name}";
+    if (derived.Count == 0) return $"No derived types found for {symbol.FullName}";
     var list = derived.Take(20).Select(s => $"- {s.FullName}");
-    return $"Found {derived.Count} derived types of {name}:\n{string.Join("\n", list)}";
+    return $"Found {derived.Count} derived types of {symbol.FullName}:\n{string.Join("\n", list)}";
 }
 
 string HandleSearchCode(JsonElement? args)
 {
     var query = args?.TryGetProperty("query", out var q) == true ? q.GetString() ?? "" : "";
     var results = searchEngine.FindSymbol(query, new SearchOptions { MaxResults = 20 });
-    if (results.Count == 0) return $"No results for '{query}'";
-    var list = results.Take(20).Select(r => $"- {r.Symbol.FullName} ({r.Symbol.Kind}) Score: {r.Score:F2}");
-    return $"Found {results.Count} results for '{query}':\n{string.Join("\n", list)}";
+    var sourceResults = searchEngine.SearchSourceText(query, 20);
+
+    var lines = new List<string>();
+    if (results.Count > 0)
+    {
+        var symbolList = results.Take(20).Select(r => $"- {r.Symbol.FullName} ({r.Symbol.Kind}) Score: {r.Score:F2}");
+        lines.Add($"Symbol matches ({results.Count}):\n{string.Join("\n", symbolList)}");
+    }
+    if (sourceResults.Count > 0)
+    {
+        var codeList = sourceResults.Take(20).Select(m => $"- {m.FilePath}:{m.Line} — {m.Content}");
+        lines.Add($"Source code matches ({sourceResults.Count}):\n{string.Join("\n", codeList)}");
+    }
+    if (lines.Count == 0) return $"No results for '{query}'";
+    return string.Join("\n\n", lines);
 }
 
 string HandleGetSymbolInfo(JsonElement? args)
 {
     var name = args?.TryGetProperty("symbolName", out var n) == true ? n.GetString() ?? "" : "";
-    var symbol = symbolTable.GetByFullName(name);
+    var symbol = ResolveSymbolByName(name);
     if (symbol == null) return $"Symbol not found: {name}";
     var callers = searchEngine.FindCallers(symbol.Id, 1);
     var callees = searchEngine.FindCallees(symbol.Id, 1);
@@ -216,7 +273,7 @@ string HandleBlastRadius(JsonElement? args)
     var symbolName = args?.TryGetProperty("symbolName", out var n) == true ? n.GetString() ?? "" : "";
     var depth = args?.TryGetProperty("depth", out var d) == true ? d.GetInt32() : 2;
 
-    var symbol = symbolTable.GetByFullName(symbolName);
+    var symbol = ResolveSymbolByName(symbolName);
     if (symbol == null) return $"Symbol not found: {symbolName}";
 
     var callers = searchEngine.FindCallers(symbol.Id, depth).ToList();
@@ -396,14 +453,24 @@ async Task<string> HandleIndexRepository(JsonElement args)
         foreach (var node in indexer.Graph.GetNodesByKind(NexusCode.Domain.NodeKind.Field))
             graph.AddNode(node);
 
-        foreach (var edge in indexer.Graph.GetEdgesByKind(NexusCode.Domain.EdgeKind.Calls))
-            graph.AddEdge(edge);
-        foreach (var edge in indexer.Graph.GetEdgesByKind(NexusCode.Domain.EdgeKind.Inherits))
-            graph.AddEdge(edge);
-        foreach (var edge in indexer.Graph.GetEdgesByKind(NexusCode.Domain.EdgeKind.Implements))
-            graph.AddEdge(edge);
-        foreach (var edge in indexer.Graph.GetEdgesByKind(NexusCode.Domain.EdgeKind.Declares))
-            graph.AddEdge(edge);
+        foreach (var kind in Enum.GetValues<NexusCode.Domain.EdgeKind>())
+        {
+            foreach (var edge in indexer.Graph.GetEdgesByKind(kind))
+                graph.AddEdge(edge);
+        }
+
+        foreach (var symbol in indexer.SymbolTable.GetByKind(NexusCode.Domain.SymbolKind.Type))
+        {
+            var refs = indexer.SymbolTable.GetReferences(symbol.Id);
+            foreach (var r in refs)
+                symbolTable.AddReference(r);
+        }
+        foreach (var symbol in indexer.SymbolTable.GetByKind(NexusCode.Domain.SymbolKind.Method))
+        {
+            var refs = indexer.SymbolTable.GetReferences(symbol.Id);
+            foreach (var r in refs)
+                symbolTable.AddReference(r);
+        }
 
         Console.Error.WriteLine($"[MCP] Indexed: {result.FilesIndexed} files, {result.SymbolsExtracted} symbols, {result.GraphNodesCreated} nodes");
 

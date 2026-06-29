@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.5.0] - Unreleased
+
+### Added
+- Added `FilePath` string field to `ReferenceEntity` for storing actual file paths during indexing
+- Added fuzzy symbol resolution (`ResolveSymbolByName`) in MCP server — resolves short names (e.g. `PlayerController`) with priority: Type > Method > Property/Field
+- Added source code text search to `search_code` MCP tool — now matches both symbol names AND actual source code content (e.g. `public void` returns matching lines with file:line)
+- Added `SourceCodeMatch` data class for source text search results in `SymbolSearchEngine`
+
+### Fixed
+- **`find_references` returned `00000000-0000-0000-0000-000000000000` instead of file paths** — Root cause: `SyntaxWalker` set `SourceFileId = Guid.Empty` without storing actual path. Fixed by populating `FilePath` field on `ReferenceEntity` during reference creation, and updating MCP handler output to display file paths
+- **`get_symbol_info` failed with short names** (e.g. `GameService`) — Root cause: handler used exact `GetByFullName` lookup which requires `global::` prefix. Fixed by adding fuzzy resolution that tries exact match → `global::` prefixed match → name match → contains match
+- **`find_implementations` failed with short names** (e.g. `IInventoryView`) — Same root cause and fix as above
+- **`find_references`/`get_symbol_info` resolved wrong symbol for `PlayerController`** — Root cause: Property `PlayerController` in `GameService.cs` had FullName `PlayerController` matching the short name, while the Type had `global::PlayerController`. Fixed by collecting all candidates and prioritizing Type > Method > others
+
+### Changed
+- `HandleFindReferences`, `HandleFindCallers`, `HandleFindCallees`, `HandleFindImplementations`, `HandleFindDerivedTypes`, `HandleGetSymbolInfo`, `HandleBlastRadius` in MCP server now use `ResolveSymbolByName` instead of direct `GetByFullName`
+- `HandleSearchCode` now returns combined results: symbol name matches + source code text matches
+- `SyntaxWalker.cs` — `VisitInvocationExpression` and `VisitIdentifierName` now populate `FilePath` on `ReferenceEntity`
+- `SymbolSearchEngine.cs` — Added `SearchSourceText()` method with file-based source code grep
+
+### Testing
+- Added `SymbolTableResolveTests.cs` (12 tests) — Fuzzy resolution, ReferenceEntity.FilePath regression tests, reference storage with paths
+- Added `SearchSourceTextTests.cs` (11 tests) — Source text search with temp files, case insensitive, null/empty queries, max results, score ordering, missing files
+- Updated `testing.md` with full 64-test suite documentation, per-test descriptions, edge case coverage, and running instructions
+- Test suite: 64/64 passing (was 42/42 in v2.4.0, +22 new tests)
+
+### Files affected
+- `src/NexusCode.Domain/Entities.cs` — Added `FilePath` to `ReferenceEntity`
+- `src/NexusCode.Roslyn/SyntaxWalker.cs` — Set `FilePath` when creating references
+- `src/NexusCode.Roslyn/SymbolSearchEngine.cs` — Added `SearchSourceText()` + `SourceCodeMatch`
+- `src/NexusCode.Roslyn/SymbolTable.cs` — Added `ResolveSymbol()` (legacy, superseded by MCP handler logic)
+- `src/NexusCode.Mcp/Program.cs` — Added `ResolveSymbolByName()`, updated all handlers
+- `src/NexusCode.Tests/SymbolTableResolveTests.cs` — **[NEW]** 12 unit tests
+- `src/NexusCode.Tests/SearchSourceTextTests.cs` — **[NEW]** 11 unit tests
+- `docs/development/testing.md` — Updated from 42 tests → 64 tests documentation
+
+---
+
 ## [2.4.0] - 2026-06-27
 
 ### Added

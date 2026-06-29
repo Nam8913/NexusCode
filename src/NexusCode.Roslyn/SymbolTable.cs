@@ -80,6 +80,34 @@ public sealed class SymbolTable
         return null;
     }
 
+    public SymbolEntity? ResolveSymbol(string name)
+    {
+        var byFull = GetByFullName(name);
+        if (byFull != null) return byFull;
+
+        var byName = GetByName(name);
+        if (byName.Count == 1) return byName[0];
+        if (byName.Count > 1)
+        {
+            SymbolEntity? best = null;
+            foreach (var s in byName)
+            {
+                if (s.Kind == SymbolKind.Type) return s;
+                if (s.Kind == SymbolKind.Method && best == null) best = s;
+            }
+            return best ?? byName[0];
+        }
+
+        SymbolEntity? fallback = null;
+        foreach (var s in _symbolsById.Values)
+        {
+            if (s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return s;
+            if (fallback == null && s.Name.StartsWith(name, StringComparison.OrdinalIgnoreCase)) fallback = s;
+            if (fallback == null && s.Name.Contains(name, StringComparison.OrdinalIgnoreCase)) fallback = s;
+        }
+        return fallback;
+    }
+
     public IReadOnlyList<SymbolEntity> GetByName(string name)
     {
         if (_symbolsByName.TryGetValue(name, out var ids))

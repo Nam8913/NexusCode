@@ -186,6 +186,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
                     SymbolId = GetSymbolId(methodSymbol),
                     SourceFileId = Guid.Empty,
                     SourceSymbolId = containingSymbol.Id,
+                    FilePath = _filePath,
                     Line = node.GetLocation().GetLineSpan().StartLinePosition.Line,
                     Column = node.GetLocation().GetLineSpan().StartLinePosition.Character,
                     Kind = ReferenceKind.Call
@@ -208,6 +209,7 @@ internal sealed class SyntaxWalker : CSharpSyntaxWalker
                     SymbolId = GetSymbolId(symbolInfo.Symbol),
                     SourceFileId = Guid.Empty,
                     SourceSymbolId = containingSymbol.Id,
+                    FilePath = _filePath,
                     Line = node.GetLocation().GetLineSpan().StartLinePosition.Line,
                     Column = node.GetLocation().GetLineSpan().StartLinePosition.Character,
                     Kind = DetermineReferenceKind(symbolInfo.Symbol)
